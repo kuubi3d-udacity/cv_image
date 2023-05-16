@@ -42,7 +42,7 @@ class DecoderRNN(nn.Module):
     def beam_search_sample(self, inputs, beam=3):
         output = []
         batch_size = inputs.shape[0] # batch_size is 1 at inference, inputs shape : (1, 1, embed_size)
-        hidden = self.init_hidden(batch_size) # Get initial hidden state of the LSTM
+        hidden = self.lstm(batch_size) # Get initial hidden state of the LSTM
         
         # sequences[0][0] : index of start word
         # sequences[0][1] : probability of the word predicted
@@ -69,7 +69,7 @@ class DecoderRNN(nn.Module):
                 inputs = inputs.type(torch.cuda.LongTensor)
                 print("inputs : ", inputs)
                 # Embed the input word
-                inputs = self.word_embeddings(inputs) # inputs shape : (1, embed_size)
+                inputs = self.embed(inputs) # inputs shape : (1, embed_size)
                 inputs = inputs.unsqueeze(1) # inputs shape : (1, 1, embed_size) 
                 
                 # retrieve the hidden state
@@ -110,12 +110,12 @@ class DecoderRNN(nn.Module):
 
     def get_next_word_input(self, max_indice):
         ## Prepare to embed the last predicted word to be the new input of the lstm
-        inputs = self.word_embeddings(max_indice) # inputs shape : (1, embed_size)
+        inputs = self.embed(max_indice) # inputs shape : (1, embed_size)
         inputs = inputs.unsqueeze(1) # inputs shape : (1, 1, embed_size)
 
         return inputs
     
-
+    '''
     def sample(self, inputs, states=None, max_len=20):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
         sampled_ids = []
@@ -134,3 +134,4 @@ class DecoderRNN(nn.Module):
         #print(sampled_ids.squeeze())
         #sampled_ids = torch.cat(sampled_ids, 1)                # (batch_size, 20)
         return sampled_ids#.squeeze()
+    '''
