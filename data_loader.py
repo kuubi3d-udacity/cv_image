@@ -21,6 +21,7 @@ def get_loader(transform,
                vocab_from_file=True,
                num_workers=0,
                cocoapi_loc='../opt'):
+    
     """Returns the data loader.
     Args:
       transform: Image transform.
