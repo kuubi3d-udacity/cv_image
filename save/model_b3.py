@@ -205,7 +205,7 @@ class DecoderRNN(nn.Module):
 
                     return sampled_ids
 
-    '''
+    
     def sample(self, inputs, states=None, max_len=20):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
         sampled_ids = []
@@ -228,7 +228,7 @@ class DecoderRNN(nn.Module):
     '''
 
     '''
-    def beam_search(self, features, beam_width, max_len):
+    def beam_search(self, dim, features, beam_width, max_len):
         # Prepare the initial inputs for beam search
         batch_size = features.size(0)
         inputs = features.squeeze(1)
@@ -277,4 +277,4 @@ class DecoderRNN(nn.Module):
         return sampled_ids
    
     '''
-    '''
+    
