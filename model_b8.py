@@ -79,6 +79,7 @@ class DecoderRNN(nn.Module):
             outputs, _ = self.lstm(inputs)  # (batch_size, beam_width, hidden_size)
             hiddens = outputs[0]  # Extract the tensor from the tuple
             outputs = self.linear(hiddens.squeeze(1))  # (batch_size, beam_width, vocab_size)
+            print('outputs', outputs)
         
 
 
