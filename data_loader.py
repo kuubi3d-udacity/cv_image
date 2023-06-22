@@ -20,7 +20,7 @@ def get_loader(transform,
                unk_word="<unk>",
                vocab_from_file=True,
                num_workers=0,
-               cocoapi_loc='..\\opt'):
+               cocoapi_loc='../opt'):
     
     """Returns the data loader.
     Args:
@@ -51,7 +51,7 @@ def get_loader(transform,
         assert os.path.exists(vocab_file), "Must first generate vocab.pkl from training data."
         assert vocab_from_file==True, "Change vocab_from_file to True."
         img_folder = os.path.join(cocoapi_loc, 'cocoapi/images/test2014/')
-        annotations_file = os.path.join(cocoapi_loc, 'cocoapi\\annotations\\image_info_test2014.json')
+        annotations_file = os.path.join(cocoapi_loc, 'cocoapi/annotations/image_info_test2014.json')
 
     # COCO caption dataset.
     dataset = CoCoDataset(transform=transform,
