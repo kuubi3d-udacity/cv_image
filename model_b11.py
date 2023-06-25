@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+
 from torch.nn.utils.rnn import pack_padded_sequence
 from heapq import heappush, heappop
+
 
 class BeamNode:
     def __init__(self, hidden, caption, log_prob, length):
@@ -67,21 +69,29 @@ class DecoderRNN(nn.Module):
 
         start_token = torch.tensor([[1]] * batch_size, dtype=torch.long, device=features.device)  # Start token is 1
         end_token = 2  # End token is 2
-        
-          # Check the number of dimensions in features tensor
-        if features.dim() < 3:
+
+        captions = torch.randint(0, vocab_size, (8, 10))  # Example input captions
+        output = decoder(features, captions, beam_search=True)
+
+
+        # Check the number of dimensions in features tensor
+        if features.dim() < 4:
             # If features tensor has fewer than 4 dimensions, add additional dimensions
             features = features.unsqueeze(1).unsqueeze(2)  # Shape: (batch_size, 1, 1, ...)
         else:
             # Convert features to a tensor if it is not already
             features = torch.tensor(features)
+            #features = torch.as_tensor(features)
+
 
         # Expand features to match beam width
         features = features.expand(batch_size, 1, *features.shape[2:])
 
         beams = [[] for _ in range(batch_size)]
         for i in range(batch_size):
-            node = BeamNode(hidden[:, i, :].unsqueeze(1), start_token[i], 0.0, 0)
+            #node = BeamNode(hidden[:, i, :].unsqueeze(0), start_token[i].unsqueeze(0), 0.0, 0)
+            node = BeamNode(hidden[0][:, i, :].unsqueeze(0), start_token[i].unsqueeze(0), 0.0, 0)
+
             beams[i].append(node)
 
         for _ in range(captions.size(1) - 1):  # -1 because we don't need to predict the last token
