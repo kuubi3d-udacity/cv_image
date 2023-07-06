@@ -25,7 +25,7 @@ class EncoderCNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1, beam_width=4):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1, beam_width=256):
         super(DecoderRNN, self).__init__()
         self.embed_size = embed_size
         self.hidden_size = hidden_size
@@ -42,16 +42,23 @@ class DecoderRNN(nn.Module):
         embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
         hiddens, _ = self.lstm(embeddings)
         outputs = self.linear(hiddens)
+        print('outputs', outputs)
         return outputs
 
     def beam_search(self, inputs, states=None, max_len=20):
         "Accepts pre-processed image tensor (inputs) and returns predicted sentence using beam search."
+       
         batch_size = inputs.size(0)
         device = inputs.device
+
+        print(inputs.size())
+        print('beam_width', self.beam_width)
         
         # Expand inputs to match beam width
-        inputs = inputs.unsqueeze(1).expand(batch_size, self.beam_width, self.embed_size)
+        #inputs = inputs.unsqueeze(1) #.expand(-1, batch_size, self.beam_width, self.embed_size)
         
+        print ('inputs', inputs)
+
         # Initialize beams
         beam_scores = torch.zeros(batch_size, self.beam_width).to(device)
         beam_seqs = torch.zeros(batch_size, self.beam_width, max_len).long().to(device)
@@ -63,7 +70,12 @@ class DecoderRNN(nn.Module):
                 inputs = beam_seqs[:, :, t-1].unsqueeze(2)
             
             # Perform one step of LSTM
-            hiddens, states = self.lstm(inputs, states)  # (batch_size, beam_width, hidden_size)
+
+            #print('to lstm', inputs, 'states', states)
+            print( 'states', states)
+
+            hiddens = self.lstm(inputs)#, states)  # (batch_size, beam_width, hidden_size)
+            print(hiddens)
             outputs = self.linear(hiddens.squeeze(1))  # (batch_size, beam_width, vocab_size)
             
             # Calculate scores for each beam
@@ -92,4 +104,6 @@ class DecoderRNN(nn.Module):
         
         # Return the sequences with the highest scores
         best_seqs = beam_seqs[:, 0, :].tolist()  # (batch_size, max_len)
-        return best_seqs
+        outputs = best_seqs
+        return outputs
+        
