@@ -67,6 +67,17 @@ class DecoderRNN(nn.Module):
 
         start_token = torch.tensor([[1]] * batch_size, dtype=torch.long, device=features.device)  # Start token is 1
         end_token = 2  # End token is 2
+        
+          # Check the number of dimensions in features tensor
+        if features.dim() < 3:
+            # If features tensor has fewer than 4 dimensions, add additional dimensions
+            features = features.unsqueeze(1).unsqueeze(2)  # Shape: (batch_size, 1, 1, ...)
+        else:
+            # Convert features to a tensor if it is not already
+            features = torch.tensor(features)
+
+        # Expand features to match beam width
+        features = features.expand(batch_size, 1, *features.shape[2:])
 
         beams = [[] for _ in range(batch_size)]
         for i in range(batch_size):
