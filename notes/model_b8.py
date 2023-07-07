@@ -100,7 +100,7 @@ class DecoderRNN(nn.Module):
         # Return the sequences with the highest scores
         best_seqs = beam_seqs[:, 0, :].tolist()  # (batch_size, max_len)
         return best_seqs
-``
+
 
 
 
