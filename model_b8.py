@@ -25,7 +25,7 @@ class EncoderCNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1, beam_width=256):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1, beam_width=4):
         super(DecoderRNN, self).__init__()
         self.embed_size = embed_size
         self.hidden_size = hidden_size
@@ -42,40 +42,173 @@ class DecoderRNN(nn.Module):
         embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
         hiddens, _ = self.lstm(embeddings)
         outputs = self.linear(hiddens)
-        print('outputs', outputs)
         return outputs
-
-    def beam_search(self, inputs, states=None, max_len=20):
-        "Accepts pre-processed image tensor (inputs) and returns predicted sentence using beam search."
-       
+    
+    def beam_search(self, inputs, beam=256, max_len=20):
+        """Accepts pre-processed image tensor (inputs) and returns predicted sentence using beam search."""
+        inputs = torch.tensor(inputs)
         batch_size = inputs.size(0)
         device = inputs.device
+        states = None
+        print('dims', inputs.dim(), 'batch', batch_size, 'input', inputs)
 
-        print(inputs.size())
-        print('beam_width', self.beam_width)
-        
+        # Check the number of dimensions in inputs tensor
+        if inputs.dim() < 3:
+            # If inputs tensor has fewer than 4 dimensions, add additional dimensions
+            inputs = inputs.unsqueeze(1).unsqueeze(2)  # Shape: (batch_size, 1, 1, ...)
+        #else:
+            # Convert inputs to a tensor if it is not already
+            #inputs = torch.tensor(inputs)
+
         # Expand inputs to match beam width
-        #inputs = inputs.unsqueeze(1) #.expand(-1, batch_size, self.beam_width, self.embed_size)
-        
-        print ('inputs', inputs)
+        inputs = inputs.expand(batch_size, 1, *inputs.shape[2:])
 
         # Initialize beams
-        beam_scores = torch.zeros(batch_size, self.beam_width).to(device)
-        beam_seqs = torch.zeros(batch_size, self.beam_width, max_len).long().to(device)
+        beam_scores = torch.zeros(batch_size, beam).to(device)
+        beam_seqs = torch.zeros(batch_size, beam, max_len).long().to(device)
         beam_seqs[:, :, 0] = inputs.squeeze(1)
-        beam_hiddens = None
+        #beam_hiddens = None
+
+        for t in range(1, max_len):
+            if t > 1:
+                inputs = beam_seqs[:, :, t-1].unsqueeze(2)
+
+            # Perform one step of LSTM
+
+
+            outputs, _ = self.lstm(inputs)  # (batch_size, beam_width, hidden_size)
+            hiddens = outputs[0]  # Extract the tensor from the tuple
+            outputs = self.linear(hiddens.squeeze(1))  # (batch_size, beam_width, vocab_size)
+            print('outputs', outputs)
+        
+
+
+
+            '''
+            hiddens = self.lstm(inputs)  # (batch_size, beam_width, hidden_size)
+            #hiddens = torch.tensor(hiddens)
+            #hiddens = torch.tensor(self.lstm(inputs))
+            # hiddens, states = self.lstm(inputs, states)  # (batch_size, beam_width, hidden_size)
+
+            #outputs = self.linear(hiddens.squeeze(1))  # (batch_size, beam_width, vocab_size)
+            #outputs = torch.tensor(self.linear(hiddens))
+            outputs = self.linear(hiddens)
+            '''
+
+
+            # Calculate scores for each beam
+            scores = outputs.log_softmax(dim=1)  # (batch_size, beam_width, vocab_size)
+            scores = beam_scores.unsqueeze(2) + scores  # (batch_size, beam_width, vocab_size)
+
+            # Reshape scores for topk calculation
+            reshaped_scores = scores.view(batch_size, -1)  # (batch_size, beam_width * vocab_size)
+
+            # Perform beam search
+            topk_scores, topk_indices = reshaped_scores.topk(beam, dim=1)  # (batch_size, beam_width)
+
+            # Calculate beam indices and token indices
+            beam_indices = topk_indices // self.vocab_size  # (batch_size, beam_width)
+            token_indices = topk_indices % self.vocab_size  # (batch_size, beam_width)
+
+            # Update beam scores
+            beam_scores = topk_scores
+
+            # Update beam sequences
+            beam_seqs[:, :, :t] = beam_seqs[torch.arange(batch_size).unsqueeze(1), beam_indices, :t]
+            beam_seqs[:, :, t] = token_indices
+
+            # Update hidden states for the next step
+            #beam_hiddens = (hiddens[torch.arange(batch_size).unsqueeze(1), beam_indices, :], states)
+
+        # Return the sequences with the highest scores
+        best_seqs = beam_seqs[:, 0, :].tolist()  # (batch_size, max_len)
+        return best_seqs
+
+'''
+    def beam_search(self, inputs, beam=256, max_len=20):
+        """Accepts pre-processed image tensor (inputs) and returns predicted sentence using beam search."""
+        batch_size = inputs.size(0)
+        device = inputs.device
+        states = None
+        print('dims', inputs.dim(), 'batch', batch_size, 'input', inputs)
+
+        # Check the number of dimensions in inputs tensor
+        if inputs.dim() < 3:
+            # If inputs tensor has fewer than 4 dimensions, add additional dimensions
+            inputs = inputs.unsqueeze(1).unsqueeze(2)  # Shape: (batch_size, 1, 1, ...)
+        
+        # Expand inputs to match beam width
+        inputs = inputs.expand(batch_size, 1, *inputs.shape[2:])
+        
+        # Initialize beams
+        beam_scores = torch.zeros(batch_size, beam).to(device)
+        beam_seqs = torch.zeros(batch_size, beam, max_len).long().to(device)
+        beam_seqs[:, :, 0] = inputs.squeeze(1)
+        #beam_hiddens = None
         
         for t in range(1, max_len):
             if t > 1:
                 inputs = beam_seqs[:, :, t-1].unsqueeze(2)
             
             # Perform one step of LSTM
+            hiddens = self.lstm(inputs)  # (batch_size, beam_width, hidden_size)
+            # hiddens, states = self.lstm(inputs, states)  # (batch_size, beam_width, hidden_size)
+            outputs = self.linear(hiddens.squeeze(1))  # (batch_size, beam_width, vocab_size)
+            
+            # Calculate scores for each beam
+            scores = outputs.log_softmax(dim=1)  # (batch_size, beam_width, vocab_size)
+            scores = beam_scores.unsqueeze(2) + scores  # (batch_size, beam_width, vocab_size)
+            
+            # Reshape scores for topk calculation
+            reshaped_scores = scores.view(batch_size, -1)  # (batch_size, beam_width * vocab_size)
+            
+            # Perform beam search
+            topk_scores, topk_indices = reshaped_scores.topk(beam, dim=1)  # (batch_size, beam_width)
+            
+            # Calculate beam indices and token indices
+            beam_indices = topk_indices // self.vocab_size  # (batch_size, beam_width)
+            token_indices = topk_indices % self.vocab_size  # (batch_size, beam_width)
+            
+            # Update beam scores
+            beam_scores = topk_scores
+            
+            # Update beam sequences
+            beam_seqs[:, :, :t] = beam_seqs[torch.arange(batch_size).unsqueeze(1), beam_indices, :t]
+            beam_seqs[:, :, t] = token_indices
+            
+            # Update hidden states for the next step
+            #beam_hiddens = (hiddens[torch.arange(batch_size).unsqueeze(1), beam_indices, :], states)
+        
+        # Return the sequences with the highest scores
+        best_seqs = beam_seqs[:, 0, :].tolist()  # (batch_size, max_len)
+        return best_seqs
 
-            #print('to lstm', inputs, 'states', states)
-            print( 'states', states)
 
-            hiddens = self.lstm(inputs)#, states)  # (batch_size, beam_width, hidden_size)
-            print(hiddens)
+
+
+
+
+    def beam_search(self, inputs, beam=3, max_len=20):
+    #def beam_search(self, inputs, states=None, max_len=20):
+        "Accepts pre-processed image tensor (inputs) and returns predicted sentence using beam search."
+        batch_size = inputs.size(0)
+        device = inputs.device
+        
+        # Expand inputs to match beam width
+        inputs = inputs.unsqueeze(1).expand(batch_size, self.beam_width, self.embed_size)
+        
+        # Initialize beams
+        beam_scores = torch.zeros(batch_size, self.beam_width).to(device)
+        beam_seqs = torch.zeros(batch_size, self.beam_width, max_len).long().to(device)
+        beam_seqs[:, :, :, 0] = inputs.squeeze(1)
+        beam_hiddens = None
+        
+        for t in range(1, max_len):
+            if t > 1:
+                inputs = beam_seqs[:, :, :, t-1].unsqueeze(2)
+            
+            # Perform one step of LSTM
+            hiddens, states = self.lstm(inputs, states)  # (batch_size, beam_width, hidden_size)
             outputs = self.linear(hiddens.squeeze(1))  # (batch_size, beam_width, vocab_size)
             
             # Calculate scores for each beam
@@ -96,14 +229,13 @@ class DecoderRNN(nn.Module):
             beam_scores = topk_scores
             
             # Update beam sequences
-            beam_seqs[:, :, :t] = beam_seqs[beam_indices, :, :t]
-            beam_seqs[:, :, t] = token_indices
+            beam_seqs[:, :, :, :t] = beam_seqs[beam_indices, :, :, :t]
+            beam_seqs[:, :, :, t] = token_indices
             
             # Update hidden states for next step
-            beam_hiddens = (hiddens[beam_indices, :, :], states)
+            beam_hiddens = (hiddens[beam_indices, :, :, :], states)
         
         # Return the sequences with the highest scores
         best_seqs = beam_seqs[:, 0, :].tolist()  # (batch_size, max_len)
-        outputs = best_seqs
-        return outputs
-        
+        return best_seqs
+'''
