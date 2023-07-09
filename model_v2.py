@@ -22,18 +22,19 @@ class EncoderCNN(nn.Module):
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1):
         super(DecoderRNN, self).__init__()
+        self.linear = nn.Linear(hidden_size, vocab_size)
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
-        self.linear = nn.Linear(hidden_size, vocab_size)
-
+    
     def forward(self, features, captions):
         print('captions', captions)
-        embeddings = self.embed(captions[:, :-1])
+        print('features', features)
+        #embeddings = self.embed(captions[:, :-1])
         #embeddings = self.embed(captions)
-        embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
+        #embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
 
-        print('embeddings', embeddings)
-        print(embeddings.shape)
+        #print('embeddings', embeddings)
+        #print(embeddings.shape)
 
         hiddens, _ = self.lstm(embeddings)
         outputs = self.linear(hiddens)
@@ -56,11 +57,12 @@ class DecoderRNN(nn.Module):
         #print('sampled_ids',sampled_ids)
         #print(sampled_ids.squeeze())
         #sampled_ids = torch.cat(sampled_ids, 1)                # (batch_size, 20)
+        return sampled_ids#.squeeze()
 
-
-    def beam_search(self, inputs, k, max_length):
+    def beam_search(self, inputs, k, max_length, states=None):
 
         all_candidates = []
+        sampled_ids = []
 
         device = inputs.device
         batch_size = inputs.size(0)
@@ -72,6 +74,22 @@ class DecoderRNN(nn.Module):
         sequence_scores = torch.zeros(batch_size, k, 1, device=device)
 
         for step in range(max_length):
+
+            hiddens, states = self.lstm(inputs, states)        # (batch_size, 1, hidden_size), 
+            outputs = self.linear(hiddens.squeeze(1))            
+            #print(outputs)# (batch_size, vocab_size)
+            predicted = outputs.max(1)[1]
+            #print('predicted',predicted)
+            #print(predicted.argmax())
+            sampled_ids.append(predicted.tolist()[0])
+            inputs = self.embed(predicted)
+            inputs = inputs.unsqueeze(1)
+
+            print('sampled_ids',sampled_ids)
+            #print(sampled_ids.squeeze())
+            sampled_ids = torch.cat(sampled_ids, 1)                # (batch_size, 20)
+            #return sampled_ids#.squeeze()
+            print('example output:', sampled_ids)
             
             for sequence in sequences:
                 image_features = sequence[0]  # Extract image features from the sequence
