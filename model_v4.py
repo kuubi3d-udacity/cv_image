@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
+
+
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
         super(EncoderCNN, self).__init__()
@@ -37,21 +39,18 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
-    def beam_search(self, features, k, max_length):
-        # Original pseudo-code line 2: Define sequence of the words in caption
+    def beam_search(self, features, start_token, end_token, k, max_length):
+        # Define sequence of the words in caption
+        #beams = [(0, start_token)]  # (score, caption)
 
-
-        #sos_token = torch.tensor([SOS])  # Start of sentence token
-        #eos_token = torch.tensor([EOS])  # End of sentence token
-
-        beams = [(torch.tensor(0.0).to(features.device), [torch.tensor(SOS).to(features.device)])]  # (score, caption)
+        beams = [(torch.tensor(0.0).to(features.device), [start_token.to(features.device)])]  # (score, caption)
         # Original pseudo-code line 1: Start
         # Initialize the beam with the start token
-        
+        candidates = []
         for _ in range(max_length):
-            candidates = []
+            
             for score, caption in beams:
-                if caption[-1] == torch.tensor(EOS).to(features.device):
+                if caption[-1] == end_token:
                     # Original pseudo-code line 5: if y.last() = EOS
                     # If the caption ends with the end token, add it as a candidate
                     candidates.append((score, caption))
