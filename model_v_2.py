@@ -38,30 +38,8 @@ class DecoderRNN(nn.Module):
         hiddens, _ = self.lstm(embeddings)
         outputs = self.linear(hiddens)
         return outputs
-    
-    def sample(self, inputs, states=None, max_len=20):
-        " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
-        sampled_ids = []
-        #inputs = inputs.unsqueeze(1)
-        for i in range(20):                                    # maximum sampling length
-            hiddens, states = self.lstm(inputs, states)        # (batch_size, 1, hidden_size), 
-            outputs = self.linear(hiddens.squeeze(1))
-            #print(outputs)# (batch_size, vocab_size)
-            predicted = outputs.max(1)[1]
-            #print('predicted',predicted)
-            #print(predicted.argmax())
-            sampled_ids.append(predicted.tolist()[0])
-            inputs = self.embed(predicted)
-            inputs = inputs.unsqueeze(1)                       # (batch_size, 1, embed_size)
-        #print('sampled_ids',sampled_ids)
-        #print(sampled_ids.squeeze())
-        #sampled_ids = torch.cat(sampled_ids, 1)                # (batch_size, 20)
-
 
     def beam_search(self, inputs, k, max_length):
-
-        all_candidates = []
-
         device = inputs.device
         batch_size = inputs.size(0)
 
@@ -72,7 +50,8 @@ class DecoderRNN(nn.Module):
         sequence_scores = torch.zeros(batch_size, k, 1, device=device)
 
         for step in range(max_length):
-            
+            all_candidates = []
+
             for sequence in sequences:
                 image_features = sequence[0]  # Extract image features from the sequence
                 captions = sequence[1]  # Extract partial captions from the sequence

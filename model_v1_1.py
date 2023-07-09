@@ -56,7 +56,7 @@ class DecoderRNN(nn.Module):
         #print('sampled_ids',sampled_ids)
         #print(sampled_ids.squeeze())
         #sampled_ids = torch.cat(sampled_ids, 1)                # (batch_size, 20)
-
+        return sampled_ids#.squeeze()
 
     def beam_search(self, inputs, k, max_length):
 
@@ -66,13 +66,14 @@ class DecoderRNN(nn.Module):
         batch_size = inputs.size(0)
 
         # Expand inputs to match beam width
-        inputs = inputs.expand(batch_size, k, *inputs.shape[2:])
+        # inputs = inputs.expand(batch_size, k, *inputs.shape[2:])
 
         sequences = [(inputs, torch.tensor([[1]]).expand(batch_size, k, 1).to(device))]  # Start token
         sequence_scores = torch.zeros(batch_size, k, 1, device=device)
 
         for step in range(max_length):
             
+
             for sequence in sequences:
                 image_features = sequence[0]  # Extract image features from the sequence
                 captions = sequence[1]  # Extract partial captions from the sequence
