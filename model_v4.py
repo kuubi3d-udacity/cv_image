@@ -39,11 +39,11 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
-    def beam_search(self, features, start_token, end_token, k, max_length):
+    def beam_search(self, features, start_token, end_token, score, caption, k, max_length):
         # Define sequence of the words in caption
-        #beams = [(0, start_token)]  # (score, caption)
-
-        beams = [(torch.tensor(0.0).to(features.device), [start_token.to(features.device)])]  # (score, caption)
+        #beams = [(score, caption)]  # (score, caption)
+        
+        beams = [(torch.tensor(0.0).to(score.device), [torch.tensor.to(caption.device)])]  # (score, caption)
         # Original pseudo-code line 1: Start
         # Initialize the beam with the start token
         candidates = []
