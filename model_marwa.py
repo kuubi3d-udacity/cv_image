@@ -36,7 +36,7 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
-    def sample(self, inputs, states=None, max_len=20):
+    def sample(self, inputs, k, states=None, max_len=20):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
         sampled_ids = []
         #inputs = inputs.unsqueeze(1)
