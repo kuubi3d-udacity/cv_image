@@ -37,7 +37,47 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
+    def beam_search(self, features, k, max_len, states=None):
+        inputs = features
+        candidates = []
+        start_token = 0
+        end_token = 1
 
+        score = torch.tensor([0.0]).to(inputs.device)
+        caption = torch.tensor([start_token]).to(inputs.device)
+        beams = [(score, caption)]  # (score, caption)
+
+        for _ in range(max_len):
+            new_beams = []
+            for beam in beams:
+                score, partial_caption = beam
+                if partial_caption[-1] == end_token:
+                    candidates.append((score, partial_caption.tolist()))
+                    continue
+
+                hiddens, states = self.lstm(inputs, states)
+                caption = self.linear(hiddens.squeeze(1))
+                top_scores, top_indices = caption.topk(k)
+                for i in range(k):
+                    new_score = score + top_scores[0][i]
+                    new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
+                    new_beams.append((new_score, new_caption))
+
+            beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
+
+        # Add any remaining beams that reach the maximum length
+        for beam in beams:
+            score, partial_caption = beam
+            if partial_caption[-1] != end_token:
+                candidates.append((score, partial_caption.tolist()))
+
+        candidates = sorted(candidates, key=lambda x: x[0], reverse=True)
+        top_candidate = candidates[0][1]
+
+        return top_candidate
+
+
+    '''
     def beam_search(self, features, k, max_len, states=None):
 
         inputs = features
@@ -59,6 +99,9 @@ class DecoderRNN(nn.Module):
             inputs = self.embed(predicted)
             inputs = inputs.unsqueeze(1)
 
+        return candidates
+    
+        
             #predicted = outputs.argmax(1)
             #candidates.append(predicted.tolist()[0])
             #inputs = self.embed(predicted)
@@ -69,7 +112,7 @@ class DecoderRNN(nn.Module):
             print('predicted', predicted.tolist())
             print('candidates', candidates)
             #print('beams', beams.tolist())
-        '''
+        
             for score, caption in beams:
                 if caption[-1] == end_token:
                     # If the caption ends with the end token, add it as a candidate
@@ -93,7 +136,7 @@ class DecoderRNN(nn.Module):
         top_predictions = [caption for score, caption in beams]
         return top_predictions
         '''
-        return candidates
+        
     
     '''
     def sample(self, features, k, states=None, max_len=20):
