@@ -51,7 +51,7 @@ class DecoderRNN(nn.Module):
             new_beams = []
             for beam in beams:
                 score, partial_caption = beam
-                if partial_caption[-1] == end_token:
+                if partial_caption[-1].item() == end_token:
                     candidates.append((score, partial_caption.tolist()))
                     continue
 
