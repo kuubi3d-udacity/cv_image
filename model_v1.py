@@ -47,17 +47,19 @@ class DecoderRNN(nn.Module):
 
 
         score = torch.tensor([0.0]).to(inputs.device)
-        #caption = torch.tensor([start_token]).to(inputs.device)
+        caption = torch.tensor([start_token]).to(inputs.device)
 
         hiddens, states = self.lstm(inputs, states)
-        caption = self.linear(hiddens.squeeze(1))
+        #caption = self.linear(hiddens.squeeze(1))
         beams = [(score, caption)]  # (score, caption)
 
         for _ in range(max_len):
             new_beams = []
             for beam in beams:
                 score, partial_caption = beam
-                if partial_caption[-1].item() == end_token[0].item():
+
+                #if partial_caption[-1].item() == end_token[0].item():
+                if partial_caption[-1] == end_token:
                     candidates.append((score, partial_caption.tolist()))
                     continue
 
@@ -70,7 +72,7 @@ class DecoderRNN(nn.Module):
 
                 for i in range(k):
                     new_score = score + top_scores[0][i]
-                    new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0).unsqueeze(0)), dim=1)
+                    new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
                     new_beams.append((new_score, new_caption))
 
                 #print('inputs', inputs)
@@ -87,14 +89,14 @@ class DecoderRNN(nn.Module):
         # Add any remaining beams that reach the maximum length
         for beam in beams:
             score, partial_caption = beam
-            if partial_caption[-1] != end_token[0].item():
+            if partial_caption[-1] != end_token:
                 candidates.append((score, partial_caption.tolist()))
 
         top_candidate = candidates[0][1]
 
         return candidates
 
-ValueError: only one element tensors can be converted to Python scalars
+
     '''
     def beam_search(self, features, k, max_len, states=None):
 
