@@ -43,59 +43,67 @@ class DecoderRNN(nn.Module):
         start_token = 0
         end_token = 1
 
+
+        hiddens, states = self.lstm(inputs, states)
+        caption = self.linear(hiddens.squeeze(1))
         score = torch.tensor([0.0]).to(inputs.device)
-        caption = torch.tensor([start_token]).to(inputs.device)
         beams = [(score, caption)]  # (score, caption)
+        print('beams', beams)
 
         for _ in range(max_len):
             new_beams = []
             for beam in beams:
                 score, partial_caption = beam
+                last_caption = partial_caption[-1]
+                print('score', score.tolist())
+                print('last_caption', last_caption)
+                
                 if partial_caption[-1] == end_token:
                     predicted.append((score, partial_caption.tolist()))
+                    print('score', score.tolist())
+                    print('p_caption', partial_caption.tolist())
                     continue
-
+                
                 hiddens, states = self.lstm(inputs, states)
                 caption = self.linear(hiddens.squeeze(1))
-                top_scores, top_indices = caption.topk(k)
+                top_scores, top_indices = torch.topk(caption, k)
+
+                print('top', top_scores, top_indices[0][2])#, top_indices)
+
                 for i in range(k):
                     new_score = score + top_scores[0][i]
-                    new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
+                    new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0).unsqueeze(0)), dim=1)
                     new_beams.append((new_score, new_caption))
 
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
 
+
+            #print('inputs', inputs)
+            #print('beams', beam)
+            #print('beams', beam)
             print('score', score.tolist())
             print('caption', caption.tolist())
             print('predicted', predicted)
-            #print('candidates', candidates)
-            #print('beams', beams.tolist())
+            
 
+        #predicted = sorted(predicted, key=lambda x: x[0], reverse=True)
+        top_candidate = sorted(predicted, key=lambda x: x[0], reverse=True)
+        #top_candidate = predicted[0][1]
 
-        # Add any remaining beams that reach the maximum length
-        for beam in beams:
-            score, partial_caption = beam
-            if partial_caption[-1] != end_token:
-                predicted.append((score, partial_caption.tolist()))
-
-        predicted = sorted(predicted, key=lambda x: x[0], reverse=True)
-        top_candidate = predicted[0][1]
+        print('top candidate', top_candidate)
+        print('predicted', predicted)
+        #print('beams', beams.tolist())
 
         return top_candidate
 
     
+
     def sample(self, features, k, max_len, states=None):
 
         inputs = features
         #inputs = features.unsqueeze(1)
         candidates = []
-        start_token = 0
-        end_token = 1
-
-        score = torch.tensor([0.0]).to(inputs.device)
-        caption = torch.tensor([start_token]).to(inputs.device)
-        beams = [score, caption]  # (score, caption)
-
+    
         for _ in range(max_len):
 
             hiddens, states = self.lstm(inputs, states)
@@ -104,12 +112,11 @@ class DecoderRNN(nn.Module):
             candidates.append(predicted.tolist()[0])
             inputs = self.embed(predicted)
             inputs = inputs.unsqueeze(1)
-
-            print('score', score.tolist())
+            
             print('caption', caption.tolist())
             print('predicted', predicted.tolist())
             print('candidates', candidates)
-            #print('beams', beams.tolist())
+           
 
         return candidates
     
