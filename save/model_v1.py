@@ -66,7 +66,7 @@ class DecoderRNN(nn.Module):
                 hiddens, states = self.lstm(inputs, states)
                 caption = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = caption.topk(k)
-                #inputs = self.embed(candidates)
+                #inputs = self.embed(torch.Tensor(candidates))
                 #inputs = inputs.unsqueeze(1)
 
 
@@ -74,13 +74,12 @@ class DecoderRNN(nn.Module):
                     new_score = score + top_scores[0][i]
                     new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
                     new_beams.append((new_score, new_caption))
-                    #candidates.append((score.tolist(), partial_caption.tolist()))
 
                 #print('inputs', inputs)
                 #print('beams', beam)
                 #print('beams', beam)
                 print('score', score.tolist())
-                print('captions', caption.tolist())
+                print('caption', caption.tolist())
                 #print('predicted', predicted)
                 print('cadidates', candidates)
 
@@ -92,7 +91,7 @@ class DecoderRNN(nn.Module):
             score, partial_caption = beam
             if partial_caption[-1] != end_token:
                 candidates.append((score, partial_caption.tolist()))
-        
+
         top_candidate = candidates[0][1]
 
         return candidates
