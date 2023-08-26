@@ -39,39 +39,40 @@ class DecoderRNN(nn.Module):
         start_token = 0
         end_token = 1
 
-        # Initialize the initial beam with a dummy caption and score
-        initial_caption = torch.tensor([[start_token]]).to(inputs.device)
-        initial_score = torch.tensor([0.0]).to(inputs.device)
-        initial_beam = (initial_score, initial_caption)
+        score = torch.tensor([0.0]).to(inputs.device)
+        caption = torch.tensor([[start_token]]).to(inputs.device)  # Make sure caption is 2D
 
-        beams = [initial_beam]
+        hiddens, states = self.lstm(inputs, states)
+        beams = [(score, caption)]  # (score, caption)
 
         for _ in range(max_len):
             new_beams = []
-            for score, partial_caption in beams:
-                if partial_caption[0][-1] == end_token:
-                    # If the current partial caption ends, add it to candidates
-                    candidates.append((score, partial_caption.tolist()))
+            for beam in beams:
+                score, partial_caption = beam
+
+                if partial_caption[0][-1].item() == end_token:  # Check the last token of the current partial caption
+                    candidates.append((score, partial_caption))
                     continue
 
-                embeddings = self.embed(partial_caption)
-                hiddens, states = self.lstm(embeddings, states)
-                caption_scores = self.linear(hiddens.squeeze(1))
-                top_scores, top_indices = caption_scores.topk(k)
-                
+                hiddens, states = self.lstm(inputs, states)
+                caption = self.linear(hiddens.squeeze(1))
+                top_scores, top_indices = caption.topk(k, dim=1)  # Top-k over the vocabulary dimension
+                inputs = self.embed(top_indices)  # Use the top-k indices as input
+                new_states = (hiddens, states[1])  # Only update the hidden states
+
                 for i in range(k):
                     new_score = score + top_scores[0][i]
-                    new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0).unsqueeze(0)), dim=1)
-                    #new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
+                    new_caption = torch.cat((partial_caption, top_indices[:, i].unsqueeze(0)), dim=1)
                     new_beams.append((new_score, new_caption))
 
-            # Sort and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
 
-        # Extract the best caption from the beams
-        best_caption = beams[0][1]
+        # Add any remaining beams that reach the maximum length
+        for beam in beams:
+            score, partial_caption = beam
+            if partial_caption[0][-1].item() != end_token:
+                candidates.append((score, partial_caption))
 
-        # Remove the start token and return the predicted caption
-        predicted_caption = best_caption[0][1:]
-
-        return predicted_caption.squeeze().tolist()
+        # Return the best caption among all candidates
+        best_caption = max(candidates, key=lambda x: x[0])[1]
+        return best_caption[0].tolist()  # Return the best caption as a list of integers
