@@ -38,14 +38,21 @@ class DecoderRNN(nn.Module):
         return outputs
 
     def beam_search(self, features, k, max_len, states=None):
+
+        """
+        Used caption_scores instead of overwriting the caption tensor in the loop.
+        Fixed the comparison of the last token with end_token.
+        Simplified the extraction of the top_candidate using the max function with a custom key function.
+        
+        """
         inputs = features
         candidates = []
 
-        start_token = torch.tensor([0], device=inputs.device)
-        end_token = torch.tensor([1], device=inputs.device)
-
-        score = torch.tensor([0.0], device=inputs.device)
-        caption = torch.tensor([start_token], device=inputs.device)
+        start_token = torch.tensor([0]).to(inputs.device) 
+        end_token = torch.tensor([1]).to(inputs.device)
+        
+        score = torch.tensor([0.0]).to(inputs.device)
+        caption = torch.tensor([start_token]).to(inputs.device)
         beams = [(score, caption)]
 
         for _ in range(max_len):
@@ -53,8 +60,8 @@ class DecoderRNN(nn.Module):
             for beam in beams:
                 score, partial_caption = beam
 
-                #if partial_caption[-1].item() == end_token.item():
-                if partial_caption[-1] == end_token:
+                if partial_caption[-1].item() == end_token.item():
+                #if partial_caption[-1] == end_token:
                     candidates.append((score, partial_caption.tolist()))
                     continue
 

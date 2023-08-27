@@ -59,10 +59,10 @@ class DecoderRNN(nn.Module):
                     continue
 
                 hiddens, states = self.lstm(inputs, states)
-                caption = self.linear(hiddens.squeeze(1))
-               
-                top_scores, top_indices = caption.topk(k)
-                predicted = caption.argmax(1)
+                caption_scores = self.linear(hiddens.squeeze(1))              
+                top_scores, top_indices = caption_scores.topk(k)
+                
+                predicted = caption_scores.argmax(1)
                 inputs = self.embed(predicted)
                 inputs = inputs.unsqueeze(1)
 
