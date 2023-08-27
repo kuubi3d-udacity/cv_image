@@ -106,3 +106,31 @@ class DecoderRNN(nn.Module):
             print("sample_ids", sampled_ids)
 
             return sampled_ids
+        
+
+"""Input:
+features: input features
+k: maximum beam size
+max_len: maximum hypothesis length
+states: optional states for LSTM
+
+1: B0 ← { (0.0, [<sos>]) }
+2: for t ∈ {1, . . . , max_len}:
+3:    B ← ∅
+4:    for (score, partial_caption) in Bt-1:
+5:        if partial_caption.last().item() = end_token:
+6:            B.add((score, partial_caption))
+7:            continue
+8:        hiddens, states ← lstm(inputs, states)
+9:        caption_scores ← linear(hiddens.squeeze(1))
+10:       top_scores, top_indices ← caption_scores.topk(k)
+11:       predicted ← caption_scores.argmax(1)
+12:       inputs ← embed(predicted)
+13:       inputs ← inputs.unsqueeze(1)
+14:       for i ∈ {1, . . . , k}:
+15:           new_score ← score + top_scores[0][i]
+16:           new_caption ← concatenate(partial_caption, [top_indices[0][i]])
+17:           B.add((new_score, new_caption))
+18:   Bt ← B.top(k)
+19: return B.max()
+"""
