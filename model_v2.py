@@ -41,22 +41,20 @@ class DecoderRNN(nn.Module):
         inputs = features
         candidates = []
         
-        start_token = 0
-        end_token = 1
+        start_token = torch.tensor([0]).to(inputs.device) 
+        end_token = torch.tensor([1]).to(inputs.device)
+        
         score = torch.tensor([0.0]).to(inputs.device)
         caption = torch.tensor([start_token]).to(inputs.device)
         beams = [(score, caption)]  
-
-        print('score', score)
-        print('caption', caption)
         
         for _ in range(max_len):
             new_beams = []
             for beam in beams:
                 score, partial_caption = beam
                 
-                #if partial_caption[-1].item() == end_token[0].item():
-                if partial_caption[-1] == end_token:
+                if partial_caption[-1].item() == end_token[0].item():
+                #if partial_caption[-1] == end_token:
                     candidates.append((score, partial_caption.tolist()))
                     continue
 
@@ -72,11 +70,12 @@ class DecoderRNN(nn.Module):
                     new_score = score + top_scores[0][i]
                     new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
                     new_beams.append((new_score, new_caption))
+                    #candidates.append((new_caption.tolist()))
                     #candidates.append((score, partial_caption.tolist()))
                 
                 print("predicted", predicted)
                 print('cadidates', candidates)
-
+            
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
             print("beam", beam)
 
@@ -86,7 +85,11 @@ class DecoderRNN(nn.Module):
             if partial_caption[-1] != end_token:
                 candidates.append((score, partial_caption.tolist()))
         
-        top_candidate = candidates[0][1]      
+            #top_candidate = beam[1]
+        top_candidate = candidates[0][1]
+        #top_candidate = beam[1].tolist()
+        print("candidates",candidates)
+        #print("top_candidate", candidates[0][1])    
         return top_candidate
 
 
