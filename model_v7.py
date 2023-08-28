@@ -49,8 +49,8 @@ class DecoderRNN(nn.Module):
                     candidates.append((score, partial_caption.tolist()))
                     continue
 
-                embedded_token = self.embed(partial_caption[-1].unsqueeze(0))
-                hiddens, states = self.lstm(embedded_token, states)
+                embedded_token = self.embed(partial_caption[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
+                hiddens, states = self.lstm(embedded_token.squeeze(0).squeeze(0), states)
                 caption_scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = caption_scores.topk(k)
 
@@ -70,7 +70,8 @@ class DecoderRNN(nn.Module):
 
         top_score, top_caption = candidates[0]
         top_candidate = top_caption
-
+        print("output", top_candidate)
+        
         return top_candidate
 
 
