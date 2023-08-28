@@ -34,62 +34,46 @@ class DecoderRNN(nn.Module):
         return outputs
 
     def beam_search(self, features, start_token, end_token, k, max_len, states=None):
-        
-        inputs = features
+        inputs = features.unsqueeze(1)  # Add a time step dimension
         candidates = []
-        print("before", inputs)
 
         score = torch.tensor([0.0]).to(inputs.device)
         caption = torch.tensor([start_token]).to(inputs.device)
-        #caption = torch.tensor([start_token]).unsqueeze(0).to(inputs.device)
-        
-        #beams = [(score, caption)]
-        beams = [(score, inputs)]
-        print("beams", beams)
-        #print("caption", caption)
- 
+
+        beams = [(score, caption, inputs, states)]
 
         for _ in range(max_len):
             new_beams = []
-            for score, partial_caption in beams:
+            for score, partial_caption, inputs, states in beams:
                 if partial_caption[-1].item() == end_token:
                     candidates.append((score, partial_caption.tolist()))
                     continue
-                print("inputs", inputs)
-                # Embed the last predicted token
-                inputs = self.embed(partial_caption[-1].unsqueeze(0)) # Embedding the last token
-                hiddens, states = self.lstm(inputs, states)
-                caption_scores = self.linear(hiddens.squeeze(1))               
+
+                embedded_token = self.embed(partial_caption[-1].unsqueeze(0))
+                hiddens, states = self.lstm(embedded_token, states)
+                caption_scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = caption_scores.topk(k)
-                #inputs = self.embed(partial_caption[-1].unsqueeze(0))
-                print("caption_scores", caption_scores)
 
                 for i in range(k):
-                    predicted = top_indices[0][i].unsqueeze(0)  # Extract the predicted token index
-                    #inputs = self.embed(predicted)  # Embed the predicted token
+                    predicted = top_indices[0][i].unsqueeze(0)
                     new_score = score + top_scores[0][i]
                     new_caption = torch.cat((partial_caption, predicted))
-                    new_beams.append((new_score, new_caption))
-
-            # Sort and select top-k beams
-            #inputs = self.embed(partial_caption[-1].unsqueeze(0)) # Embedding the last token
+                    new_inputs = torch.cat((inputs, embedded_token), dim=1)
+                    new_beams.append((new_score, new_caption, new_inputs, states))
 
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
 
-        # Collect final candidates
-        for score, partial_caption in beams:
+        for score, partial_caption, _, _ in beams:
             if partial_caption[-1].item() != end_token:
                 candidates.append((score, partial_caption.tolist()))
 
-        # Select the best candidate
-        #top_candidate = candidates[0][1]
-        print("beams", beams)
-        top_score, top_caption = beams[0]
-        top_candidate = top_caption.tolist()
-        #top_candidate = max(candidates, key=lambda x: x[0])[1]
+        top_score, top_caption = candidates[0]
+        top_candidate = top_caption
+
         return top_candidate
-        
+
+
 
 
 
