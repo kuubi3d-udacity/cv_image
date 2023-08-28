@@ -48,7 +48,8 @@ class DecoderRNN(nn.Module):
                     candidates.append((score, partial_caption.tolist()))
                     continue
 
-                inputs = self.embed(partial_caption[-1].unsqueeze(0))  # Embedding the last token
+                inputs = self.embed(partial_caption[-1].unsqueeze(0)) # Embedding the last token
+                inputs = inputs.unsqueeze(1)  
                 hiddens, states = self.lstm(inputs, states)
                 caption_scores = self.linear(hiddens.squeeze(1))              
                 top_scores, top_indices = caption_scores.topk(k)
@@ -58,9 +59,13 @@ class DecoderRNN(nn.Module):
                     new_caption = torch.cat((partial_caption, top_indices[0][i].unsqueeze(0)))
                     new_beams.append((new_score, new_caption))
                 
+                #print("predicted", predicted)
+                print('cadidates', candidates)
+
                 # Sort and select top-k beams
                 new_beams.sort(key=lambda x: x[0], reverse=True)
                 beams = new_beams[:k]
+                print("beams", beams)
 
         # Collect final candidates
         for score, partial_caption in beams:
