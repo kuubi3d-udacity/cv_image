@@ -41,6 +41,7 @@ class DecoderRNN(nn.Module):
         caption = torch.tensor([start_token]).to(inputs.device)
 
         beams = [(score, caption, inputs, states)]
+        print("beams", beams)
 
         for _ in range(max_len):
             new_beams = []
@@ -61,6 +62,17 @@ class DecoderRNN(nn.Module):
                     new_inputs = torch.cat((inputs, embedded_token), dim=1)
                     new_beams.append((new_score, new_caption, new_inputs, states))
 
+                
+                for i in range(k):
+                    predicted = top_indices[0][i].unsqueeze(0)
+                    new_score = score + top_scores[0][i]
+                    new_caption = torch.cat((partial_caption, predicted))
+                    
+                    # Clone the states tensor for each new beam
+                    new_states = [state.clone() for state in states]
+    
+                    new_beams.append((new_score, new_caption, new_inputs, new_states))
+
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
 
@@ -71,7 +83,7 @@ class DecoderRNN(nn.Module):
         top_score, top_caption = candidates[0]
         top_candidate = top_caption
         print("output", top_candidate)
-        
+
         return top_candidate
 
 
