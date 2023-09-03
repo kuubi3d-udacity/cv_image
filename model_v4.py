@@ -38,12 +38,12 @@ class DecoderRNN(nn.Module):
         candidates = []
 
         score = torch.tensor([0.0]).to(inputs.device)
-        caption = torch.tensor([start_token]).to(inputs.device)
+        token = torch.tensor([start_token]).to(inputs.device)
 
-        beams = [(score, caption, inputs, states)]
+        beams = [(score, token, inputs, states)]
 
         for _ in range(max_len):
-            new_beams = []
+            next_beam = []
             for score, token, inputs, states in beams:
                 if token[-1].item() == end_token:
                     candidates.append((score, token.tolist()))
@@ -58,15 +58,15 @@ class DecoderRNN(nn.Module):
 
                 for i in range(k):
                     predicted = top_indices[0][i].unsqueeze(0)
-                    new_score = top_scores[0][i]
-                    new_caption = torch.cat((token, predicted))
-                    new_inputs = torch.cat((inputs, embedded_token), dim=1)
-                    new_beams.append((new_score, new_caption, new_inputs, states))
+                    next_score = top_scores[0][i]
+                    next_word = torch.cat((token, predicted))
+                    next_inputs = torch.cat((inputs, embedded_token), dim=1)
+                    next_beam.append((next_score, next_word, next_inputs, states))
                     
-                    print("new caption", new_caption)
+                    print("next caption", next_word)
 
-            new_beams.sort(key=lambda x: x[0], reverse=True)
-            beams = new_beams[:k]
+            next_beam.sort(key=lambda x: x[0], reverse=True)
+            beams = next_beam[:k]
         '''
         for score, token, _, _ in beams:
             if token[-1].item() != end_token:

@@ -104,8 +104,8 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)
 
             #print("inputs", inputs)
-            #print("outputs", outputs)
-            #print("predicted", predicted)
+            print("outputs", outputs)
+            print("predicted", predicted)
             #print("sample_ids", sampled_ids)
  
         return sampled_ids
