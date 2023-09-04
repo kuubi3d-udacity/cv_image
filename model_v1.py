@@ -40,30 +40,29 @@ class DecoderRNN(nn.Module):
         score = torch.tensor([0.0]).to(inputs.device)
         token = torch.tensor([start_token]).to(inputs.device)
 
-        beams = [(score, token, inputs, states)]
+        beams = [(score, token, inputs, states)]  # Removed unnecessary unpacking
 
         for _ in range(max_len):
             new_beams = []
-            for score, beam, inputs, states in beams:
-                if beam[-1].item() == end_token:
-                    candidates.append((score, beam.tolist()))
+            embedded_token = self.embed(torch.tensor([start_token]).to(inputs.device))
+
+            for weights, tier, inputs, states in beams:
+                if tier[-1].item() == end_token:
+                    candidates.append((weights, tier.tolist()))
                     continue
 
-                embedded_token = self.embed(beam[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
-                hiddens, states = self.lstm(embedded_token.squeeze(0).squeeze(0), states)
-                caption_scores = self.linear(hiddens.squeeze(1))
-                top_scores, top_indices = caption_scores.topk(k)
-
-                print("top scores", top_scores, top_indices)
+                embedded_token = self.embed(tier[-1].unsqueeze(0).unsqueeze(0)) 
+                hiddens, states = self.lstm(embedded_token, states)
+                scores = self.linear(hiddens.squeeze(1))
+                top_scores, top_indices = scores.topk(k)
+                print("embedded_token", embedded_token)
 
                 for i in range(k):
-                    predicted = top_indices[0][i].unsqueeze(0)
-                    new_score = top_scores[0][i]
-                    new_caption = torch.cat((beam, predicted))
-                    new_inputs = torch.cat((inputs, embedded_token), dim=1)
-                    new_beams.append((new_score, new_caption, new_inputs, states))
-                    
-                    print("new caption", new_caption)
+                    k_node = top_indices[0][i].unsqueeze(0)
+                    weights = top_scores[0][i].unsqueeze(0)
+                    next_node = torch.cat((tier, k_node))
+                    new_inputs = torch.cat((inputs, embedded_token.unsqueeze(1)), dim=1)
+                    new_beams.append((weights, next_node, new_inputs, states))
 
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
@@ -72,12 +71,11 @@ class DecoderRNN(nn.Module):
             if token[-1].item() != end_token:
                 candidates.append((score, token.tolist()))
         
+        candidates.sort(key=lambda x: x[0], reverse=True)
         top_score, top_caption = candidates[0]
-        top_candidate = top_caption
-        print("output", top_candidate)
-        
-        return top_candidate
-        
+        return top_caption
+
+
 
 
     def sample(self, features, k, states=None, max_len=20):

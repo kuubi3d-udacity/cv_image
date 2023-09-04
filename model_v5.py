@@ -44,6 +44,8 @@ class DecoderRNN(nn.Module):
 
         for _ in range(max_len):
             new_beams = []
+            embedded_token = self.embed(torch.tensor([start_token]).to(inputs.device))
+
             for weights, tier, inputs, states in beams:
                 if tier[-1].item() == end_token:
                     candidates.append((weights, tier.tolist()))
@@ -57,9 +59,9 @@ class DecoderRNN(nn.Module):
 
                 for i in range(k):
                     k_node = top_indices[0][i].unsqueeze(0)
-                    weights = top_scores[0][i]
+                    weights = top_scores[0][i].unsqueeze(0)
                     next_node = torch.cat((tier, k_node))
-                    new_inputs = torch.cat((inputs, embedded_token.unsqueeze(0)), dim=1)
+                    new_inputs = torch.cat((inputs, embedded_token.unsqueeze(1)), dim=1)
                     new_beams.append((weights, next_node, new_inputs, states))
 
             new_beams.sort(key=lambda x: x[0], reverse=True)
