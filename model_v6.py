@@ -37,59 +37,42 @@ class DecoderRNN(nn.Module):
         inputs = features.unsqueeze(1)  # Add a time step dimension
         candidates = []
 
-        score = torch.tensor([0.0]).to(inputs.device)
-        token = torch.tensor([start_token]).to(inputs.device)
-        weights = torch.tensor([0.0]).to(inputs.device)
-
-        beams = [(score, token, inputs, states)]  # Removed unnecessary unpacking
-        beam, path, node, next_node, new_beam = [],[],[],[],[]
+        beams = [(torch.tensor([0.0]).to(inputs.device), [start_token], inputs, states)]
 
         for _ in range(max_len):
-            #beam, path, next_node, new_beam = []
-            embedded_token = self.embed(torch.tensor([start_token]).to(inputs.device))
+            new_beams = []
 
-            for weights, tier, inputs, states in beams:
-                if tier[-1].item() == end_token:
-                    candidates.append((weights, tier.tolist()))
+            for score, tokens, inputs, states in beams:
+                if tokens[-1] == end_token:
+                    candidates.append((score, tokens))
                     continue
 
-                embedded_token = self.embed(tier[-1].unsqueeze(0).unsqueeze(0)) 
-                hiddens, states = self.lstm(embedded_token, states)
-                scores = self.linear(hiddens.squeeze(1))
-                top_scores, top_indices = scores.topk(k)
-                #print("embedded_token", embedded_token)
+                hiddens, states = self.lstm(inputs, states)
+                outputs = self.linear(hiddens.squeeze(1))
+                top_scores, top_indices = outputs.topk(k)
 
                 for i in range(k):
-                    k_node = top_indices[0][i].unsqueeze(0)
-                    weights = top_scores[0][i].unsqueeze(0)
-                    next_node = torch.cat((weights, k_node))
-                    #node.append(next_node)
+                    next_token = top_indices[0][i].item()
+                    next_score = top_scores[0][i].item()
+                    new_score = score + next_score
+                    new_tokens = tokens + [next_token]
+                    new_inputs = self.embed(torch.tensor([next_token]).to(inputs.device))
+                    new_inputs = new_inputs.unsqueeze(1)
+                    new_states = states
 
-                    node = node + next_node.tolist()
+                    if next_token == end_token:
+                        candidates.append((new_score, new_tokens))
+                    else:
+                        new_beams.append((new_score, new_tokens, new_inputs, new_states))
 
+            new_beams.sort(key=lambda x: x[0], reverse=True)
+            beams = new_beams[:k]
 
-                    #path = path + (next_node[0].tolist()), (next_node[1].tolist())
-                    #new_inputs = torch.cat((inputs, embedded_token.unsqueeze(0)), dim=1)
-                    #new_beam.append((weights, new_beam, new_inputs, states))
-            beam.append(node)
-            new_beam = beam
-
-            print('node', node)
-            print('path', path)
-            print('beam', beam)
-            print('new_beam', new_beam)
-            #new_beam.sort(key=lambda x: x[0], reverse=True)
-            #break
-            beams = new_beam[:k]
-            print('beams', beams)
-        
-        for score, token, _, _ in beams:
-            if token[-1].item() != end_token:
-                candidates.append((score, token.tolist()))
-        
         candidates.sort(key=lambda x: x[0], reverse=True)
         top_score, top_caption = candidates[0]
         return top_caption
+
+
 
 
 
