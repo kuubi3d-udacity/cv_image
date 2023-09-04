@@ -39,6 +39,7 @@ class DecoderRNN(nn.Module):
 
         score = torch.tensor([0.0]).to(inputs.device)
         token = torch.tensor([start_token]).to(inputs.device)
+        weights = torch.tensor([0.0]).to(inputs.device)
 
         beams = [(score, token, inputs, states)]  # Removed unnecessary unpacking
 

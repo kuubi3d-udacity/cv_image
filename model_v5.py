@@ -39,11 +39,13 @@ class DecoderRNN(nn.Module):
 
         score = torch.tensor([0.0]).to(inputs.device)
         token = torch.tensor([start_token]).to(inputs.device)
+        weights = torch.tensor([0.0]).to(inputs.device)
 
         beams = [(score, token, inputs, states)]  # Removed unnecessary unpacking
+        beam, path, node, next_node, new_beam = [],[],[],[],[]
 
         for _ in range(max_len):
-            new_beams = []
+            #beam, path, next_node, new_beam = []
             embedded_token = self.embed(torch.tensor([start_token]).to(inputs.device))
 
             for weights, tier, inputs, states in beams:
@@ -55,17 +57,31 @@ class DecoderRNN(nn.Module):
                 hiddens, states = self.lstm(embedded_token, states)
                 scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = scores.topk(k)
-                print("embedded_token", embedded_token)
+                #print("embedded_token", embedded_token)
 
                 for i in range(k):
                     k_node = top_indices[0][i].unsqueeze(0)
                     weights = top_scores[0][i].unsqueeze(0)
-                    next_node = torch.cat((tier, k_node))
-                    new_inputs = torch.cat((inputs, embedded_token.unsqueeze(1)), dim=1)
-                    new_beams.append((weights, next_node, new_inputs, states))
+                    next_node = torch.cat((weights, k_node))
+                    node = node + next_node.tolist()
 
-            new_beams.sort(key=lambda x: x[0], reverse=True)
-            beams = new_beams[:k]
+                    
+                    #path = path + (next_node[0].tolist()), (next_node[1].tolist())
+                    beam.append(node)
+                    new_beam = beam
+
+                    print('node', node)
+                    print('path', path)
+                    print('beam', beam)
+                    print('new_beam', new_beam)
+                    
+                    #new_inputs = torch.cat((inputs, embedded_token.unsqueeze(0)), dim=1)
+                    #new_beam.append((weights, new_beam, new_inputs, states))
+
+            #new_beam.sort(key=lambda x: x[0], reverse=True)
+            break
+            beams = new_beam[:k]
+            print('beams', beams)
         
         for score, token, _, _ in beams:
             if token[-1].item() != end_token:
