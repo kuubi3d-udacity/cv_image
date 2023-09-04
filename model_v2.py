@@ -33,45 +33,50 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
-    def beam_search(self, features, start_token, end_token, k, max_len):
+    def beam_search(self, features, start_token, end_token, k, max_len, states=None):
         inputs = features.unsqueeze(1)  # Add a time step dimension
         candidates = []
 
         score = torch.tensor([0.0]).to(inputs.device)
-        caption = torch.tensor([start_token]).to(inputs.device)
+        token = torch.tensor([start_token]).to(inputs.device)
 
-        beams = [(score, caption, inputs)]
+        beams = [(weights, token, inputs, states)]
 
         for _ in range(max_len):
             new_beams = []
-            for score, partial_caption, inputs in beams:
-                if partial_caption[-1].item() == end_token:
-                    candidates.append((score, partial_caption.tolist()))
+            for weights, tier, inputs, states in beams:
+                if tier[-1].item() == end_token:
+                    candidates.append((score, tier.tolist()))
                     continue
 
-                embedded_token = self.embed(partial_caption[-1].unsqueeze(0))
-                hiddens = self.lstm(embedded_token, inputs)  # LSTM input is (input, h_0)
-                caption_scores = self.linear(hiddens[0].squeeze(1))
-                top_scores, top_indices = caption_scores.topk(k)
+                embedded_token = self.embed(tier[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
+                hiddens, states = self.lstm(embedded_token.squeeze(0).squeeze(0), states)
+                scores = self.linear(hiddens.squeeze(1))
+                top_scores, top_indices = scores.topk(k)
+
+                print("top scores", top_scores, top_indices)
 
                 for i in range(k):
-                    predicted = top_indices[0][i].unsqueeze(0)
-                    new_score = score + top_scores[0][i]
-                    new_caption = torch.cat((partial_caption, predicted))
-                    new_inputs = (embedded_token, hiddens[1])  # New LSTM input tuple
-                    new_beams.append((new_score, new_caption, new_inputs))
+                    k_node = top_indices[0][i].unsqueeze(0)
+                    weights = top_scores[0][i]
+                    next_node = torch.cat((weights.unsqueeze(0), k_node))
+                    new_inputs = torch.cat((inputs, embedded_token), dim=1)
+                    new_beams.append((weights, next_node, new_inputs, states))
+                    print("new beam", new_beams)
 
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
-
-        for score, partial_caption, _ in beams:
-            if partial_caption[-1].item() != end_token:
-                candidates.append((score, partial_caption.tolist()))
-
+        
+        for score, token, _, _ in beams:
+            if token[-1].item() != end_token:
+                candidates.append((score, token.tolist()))
+        
         top_score, top_caption = candidates[0]
         top_candidate = top_caption
-
+        print("output", top_candidate)
+        
         return top_candidate
+        
 
 
     def sample(self, features, k, states=None, max_len=20):
@@ -91,9 +96,57 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)
 
             #print("inputs", inputs)
-            #print("outputs", outputs)
-            #print("predicted", predicted)
+            print("outputs", outputs)
+            print("predicted", predicted)
             #print("sample_ids", sampled_ids)
  
         return sampled_ids
+    
 
+"""
+Input:
+features: input features
+k: maximum beam size
+max_len: maximum hypothesis length
+states: optional states for LSTM
+
+1: B0 ← { (0.0, [<sos>]) }
+2: for t ∈ {1, . . . , max_len}:
+3:    B ← ∅
+4:    for (score, token) in Bt-1:
+5:        if token.last().item() = end_token:
+6:            B.add((score, token))
+7:            continue
+8:        hiddens, states ← lstm(inputs, states)
+9:        caption_scores ← linear(hiddens.squeeze(1))
+10:       top_scores, top_indices ← caption_scores.topk(k)
+11:       predicted ← caption_scores.argmax(1)
+12:       inputs ← embed(predicted)
+13:       inputs ← inputs.unsqueeze(1)
+14:       for i ∈ {1, . . . , k}:
+15:           new_score ← score + top_scores[0][i]
+16:           new_caption ← concatenate(token, [top_indices[0][i]])
+17:           B.add((new_score, new_caption))
+18:   Bt ← B.top(k)
+19: return B.max()
+"""
+
+"""
+Algorithm 1 Standard beam search4
+Input: x: source sentence
+k : maximum beam size
+nmax: maximum hypothesis length
+score(·, ·): scoring function
+1: B0 ← {0, BOS }
+2: for t ∈ {1, . . . , nmax −1} :
+3: B ← ∅
+4: for s, y ∈ Bt−1 :
+5: if y.last() = EOS :
+6: B.add(s, y)
+7: continue
+8: for y ∈ V :
+9: s ← score(x, y ◦ y)
+10: B.add(s, y ◦ y)
+11: Bt ← B.top(k)
+12: return B.max()
+"""

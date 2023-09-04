@@ -38,18 +38,18 @@ class DecoderRNN(nn.Module):
         candidates = []
 
         score = torch.tensor([0.0]).to(inputs.device)
-        caption = torch.tensor([start_token]).to(inputs.device)
+        token = torch.tensor([start_token]).to(inputs.device)
 
-        beams = [(score, caption, inputs, states)]
+        beams = [(score, token, inputs, states)]
 
         for _ in range(max_len):
             new_beams = []
-            for score, token, inputs, states in beams:
-                if token[-1].item() == end_token:
-                    candidates.append((score, token.tolist()))
+            for score, beam, inputs, states in beams:
+                if beam[-1].item() == end_token:
+                    candidates.append((score, beam.tolist()))
                     continue
 
-                embedded_token = self.embed(token[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
+                embedded_token = self.embed(beam[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
                 hiddens, states = self.lstm(embedded_token.squeeze(0).squeeze(0), states)
                 caption_scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = caption_scores.topk(k)
@@ -59,7 +59,7 @@ class DecoderRNN(nn.Module):
                 for i in range(k):
                     predicted = top_indices[0][i].unsqueeze(0)
                     new_score = top_scores[0][i]
-                    new_caption = torch.cat((token, predicted))
+                    new_caption = torch.cat((beam, predicted))
                     new_inputs = torch.cat((inputs, embedded_token), dim=1)
                     new_beams.append((new_score, new_caption, new_inputs, states))
                     
@@ -67,11 +67,11 @@ class DecoderRNN(nn.Module):
 
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
-        '''
+        
         for score, token, _, _ in beams:
             if token[-1].item() != end_token:
                 candidates.append((score, token.tolist()))
-        '''
+        
         top_score, top_caption = candidates[0]
         top_candidate = top_caption
         print("output", top_candidate)

@@ -34,44 +34,52 @@ class DecoderRNN(nn.Module):
         return outputs
 
     def beam_search(self, features, start_token, end_token, k, max_len, states=None):
-        inputs = features.unsqueeze(1)  # Add a time step dimension
+        input = features.unsqueeze(1)  # Add a time step dimension
         candidates = []
 
-        score = torch.tensor([0.0]).to(inputs.device)
-        token = torch.tensor([start_token]).to(inputs.device)
+        score = torch.tensor([0.0]).to(input.device)
+        token = torch.tensor([start_token]).to(input.device)
 
-        beams = [(score, token, inputs, states)]
-
+        beams = [(score, token, input, states)]
+        next_beam = []
         for _ in range(max_len):
-            next_beam = []
-            for score, token, inputs, states in beams:
+            
+            for scores, tokens, _, _ in beams:
+            #for score, tokens, input, states in beams:
                 if token[-1].item() == end_token:
-                    candidates.append((score, token.tolist()))
+                    candidates.append((score, tokens.tolist()))
                     continue
 
-                embedded_token = self.embed(token[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
-                hiddens, states = self.lstm(embedded_token.squeeze(0).squeeze(0), states)
-                caption_scores = self.linear(hiddens.squeeze(1))
-                top_scores, top_indices = caption_scores.topk(k)
+                hiddens, states = self.lstm(input.squeeze(0).squeeze(0), states)
+                scores = self.linear(hiddens.squeeze(1))
+                print("scores", scores)
+                top_scores, top_indices = scores.topk(k)
+                #next_beam.append((top_scores))
+                #embedded_token = self.embed(tokens[-1].unsqueeze(0).unsqueeze(0).unsqueeze(0))
 
-                print("top scores", top_scores, top_indices)
+                print("next beam", next_beam)
+                #print("top scores", top_scores, top_indices)
 
                 for i in range(k):
-                    predicted = top_indices[0][i].unsqueeze(0)
-                    next_score = top_scores[0][i]
-                    next_word = torch.cat((token, predicted))
-                    next_inputs = torch.cat((inputs, embedded_token), dim=1)
-                    next_beam.append((next_score, next_word, next_inputs, states))
+                    next_score = top_scores[0][i].unsqueeze(0)
+                    next_node = top_indices[0][i].unsqueeze(0)
+                    print("next_score", next_score)
+                    next_word = torch.cat((next_score, next_node))
+                    #next_inputs = torch.cat((input, embedded_token), dim=1)
+                    #next_beam.append((next_score, next_word, input, states))
+                    next_beam.append((next_score, next_node))
                     
-                    print("next caption", next_word)
+                    #print("next beam", next_beam[0][1])
+
 
             next_beam.sort(key=lambda x: x[0], reverse=True)
-            beams = next_beam[:k]
-        '''
+            input = self.embed(next_beam)
+            beams = next_beam
+        
         for score, token, _, _ in beams:
             if token[-1].item() != end_token:
                 candidates.append((score, token.tolist()))
-        '''
+        
         top_score, top_caption = candidates[0]
         top_candidate = top_caption
         print("output", top_candidate)
@@ -91,14 +99,15 @@ class DecoderRNN(nn.Module):
         for _ in range(max_len):
             hiddens, states = self.lstm(inputs, states)
             outputs = self.linear(hiddens.squeeze(1))
+            print("outputs", outputs)
             predicted = outputs.argmax(1)           
             sampled_ids.append(predicted.tolist()[0])
             inputs = self.embed(predicted)
             inputs = inputs.unsqueeze(1)
 
-            #print("inputs", inputs)
-            print("outputs", outputs)
-            print("predicted", predicted)
+            print("inputs", inputs)
+            
+            #print("predicted", predicted)
             #print("sample_ids", sampled_ids)
  
         return sampled_ids
