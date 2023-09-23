@@ -59,13 +59,12 @@ class DecoderRNN(nn.Module):
                     new_tokens = tokens + [next_token]
                     new_inputs = inputs
                     new_states = states
-                    print('i', i, 'new_tokens', new_tokens)
 
                     if next_token == end_token:
                         candidates.append((new_score, new_tokens))
                     else:
                         new_beams.append((new_score, new_tokens, new_inputs, new_states))
-            #print('new_tokens', new_tokens)
+
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
 
