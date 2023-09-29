@@ -41,6 +41,7 @@ class DecoderRNN(nn.Module):
 
         for _ in range(max_len):
             new_beams = []
+            new_node = []
             new_tokens = []
 
             for score, tokens, inputs, states in beams:
@@ -54,26 +55,30 @@ class DecoderRNN(nn.Module):
                 top_scores, top_indices = scores.topk(k)
 
                 for i in range(k):
-                    next_token = top_indices[0][i].item()
-                    next_score = top_scores[0][i].item()
-                    new_score = score + next_score
-                    new_tokens.append(next_score)
-                    #new_tokens = tokens + [next_token]
+                    next_node = top_indices[0][i].item()
+                    next_token = top_scores[0][i].item()
+                    new_node.append(next_node)
+                    new_tokens.append(next_token)
+                    
                     new_inputs = inputs
                     new_states = states
                     print('i', i, 'new_tokens', new_tokens)
 
                     if next_token == end_token:
-                        candidates.append((new_score, new_tokens))
+                        candidates.append((new_tokens))
                     else:
-                        new_beams.append((new_score, new_tokens, new_inputs, new_states))
+                        new_beams.append((new_node, new_tokens, new_inputs, new_states))
             #print('new_tokens', new_tokens)
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
+            new_tokens = [int(t) for t in new_tokens]
+            candidates.append(new_tokens)
+            print('candidates', candidates)
 
         candidates.sort(key=lambda x: x[0], reverse=True)
-        top_score, top_caption = candidates[0]
-        return top_caption
+        print('candidates', candidates)
+        #top_score, top_caption = candidates[0]
+        return candidates
 
 
 
