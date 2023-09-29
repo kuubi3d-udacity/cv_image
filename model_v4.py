@@ -34,28 +34,31 @@ class DecoderRNN(nn.Module):
         return outputs
 
     def beam_search(self, features, start_token, end_token, k, max_len, states=None):
-        inputs = features.unsqueeze(1)  # Add a time step dimension
+        inputs = features  # Add a time step dimension
         candidates = []
 
         beams = [(torch.tensor([0.0]).to(inputs.device), [start_token], inputs, states)]
 
         for _ in range(max_len):
             new_beams = []
+            new_tokens = []
 
-            for score, new_tokens, inputs, states in beams:
-                if new_tokens[-1] == end_token:
-                    candidates.append((score, new_tokens))
+            for score, tokens, inputs, states in beams:
+                if tokens[-1] == end_token:
+                    candidates.append((score, tokens))
 
-                embedded_token = self.embed(torch.tensor([new_tokens[-1]]).to(inputs.device))
-                hiddens, states = self.lstm(embedded_token, states)
+                #embedded_token = self.embed(torch.tensor([tokens[-1]]).to(inputs.device))
+                hiddens, states = self.lstm(inputs, states)
                 scores = self.linear(hiddens.squeeze(1))
+                print('scores', scores)
                 top_scores, top_indices = scores.topk(k)
 
                 for i in range(k):
                     next_token = top_indices[0][i].item()
                     next_score = top_scores[0][i].item()
                     new_score = score + next_score
-                    new_tokens = embedded_token + next_token
+                    new_tokens.append(next_score)
+                    #new_tokens = tokens + [next_token]
                     new_inputs = inputs
                     new_states = states
                     print('i', i, 'new_tokens', new_tokens)
