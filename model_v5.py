@@ -33,65 +33,45 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
+    
+  
     def beam_search(self, features, start_token, end_token, k, max_len, states=None):
         inputs = features.unsqueeze(1)  # Add a time step dimension
-        candidates = []
-
-        score = torch.tensor([0.0]).to(inputs.device)
-        token = torch.tensor([start_token]).to(inputs.device)
-        weights = torch.tensor([0.0]).to(inputs.device)
-
-        beams = [(score, token, inputs, states)]  # Removed unnecessary unpacking
-        beam, path, node, next_node, new_beam = [],[],[],[],[]
+        beams = [(torch.tensor([start_token]).to(features.device), [start_token], states)]
 
         for _ in range(max_len):
-            #beam, path, next_node, new_beam = []
-            embedded_token = self.embed(torch.tensor([start_token]).to(inputs.device))
+            new_beams = []
+            new_tokens = []
 
-            for weights, tier, inputs, states in beams:
-                if tier[-1].item() == end_token:
-                    candidates.append((weights, tier.tolist()))
+            for tokens, _, lstm_states in beams:
+                if tokens[-1] == end_token:
+                    new_beams.append((tokens, 1, lstm_states))
                     continue
 
-                embedded_token = self.embed(tier[-1].unsqueeze(0).unsqueeze(0)) 
-                hiddens, states = self.lstm(embedded_token, states)
+                embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
+                hiddens, lstm_states = self.lstm(embeddings.unsqueeze(1), lstm_states)
                 scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = scores.topk(k)
-                #print("embedded_token", embedded_token)
 
                 for i in range(k):
-                    k_node = top_indices[0][i].unsqueeze(0)
-                    weights = top_scores[0][i].unsqueeze(0)
-                    next_node = torch.cat((weights, k_node))
-                    #node.append(next_node)
+                    next_token = top_indices[0][i].item()
+                    #next_token = torch.tensor(top_indices[0][i].item()).to(features.device)
+                    new_tokens.append(next_token)
+                    #new_tokens = tokens + [next_token]
+                    #new_tokens = torch.tensor(tokens + next_token).to(features.device)  # Convert to tensor
+                    new_beams.append((new_tokens, top_scores[0][i].item(), lstm_states))
+                    print('i', i, 'new_tokens', new_tokens)
 
-                    node = node + next_node.tolist()
+            # Sort beams based on scores
+            beams = sorted(new_beams, key=lambda x: x[1], reverse=True)[:k]
 
+        # Extract the top token sequences from the beams and convert them to lists
+        top_sequences = [tokens for tokens, _, _ in beams if tokens[-1] == end_token]
+        return top_sequences
 
-                    #path = path + (next_node[0].tolist()), (next_node[1].tolist())
-                    #new_inputs = torch.cat((inputs, embedded_token.unsqueeze(0)), dim=1)
-                    #new_beam.append((weights, new_beam, new_inputs, states))
-            beam.append(node)
-            new_beam = beam
-
-            print('node', node)
-            print('path', path)
-            print('beam', beam)
-            print('new_beam', new_beam)
-            #new_beam.sort(key=lambda x: x[0], reverse=True)
-            #break
-            beams = new_beam[:k]
-            print('beams', beams)
-        
-        for score, token, _, _ in beams:
-            if token[-1].item() != end_token:
-                candidates.append((score, token.tolist()))
-        
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        top_score, top_caption = candidates[0]
-        return top_caption
-
-
+# Example usage:
+# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+# top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
 
 
     def sample(self, features, k, states=None, max_len=20):

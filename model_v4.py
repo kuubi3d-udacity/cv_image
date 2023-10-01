@@ -36,6 +36,7 @@ class DecoderRNN(nn.Module):
     def beam_search(self, features, start_token, end_token, k, max_len, states=None):
         inputs = features  # Add a time step dimension
         candidates = []
+        scores = []
 
         beams = [(torch.tensor([0.0]).to(inputs.device), [start_token], inputs, states)]
 
@@ -44,30 +45,33 @@ class DecoderRNN(nn.Module):
             new_node = []
             new_tokens = []
 
-            for score, tokens, inputs, states in beams:
+            for scores, tokens, inputs, states in beams:
+                print('scores', scores)
+                #print('beams', beams)
                 if tokens[-1] == end_token:
-                    candidates.append((score, tokens))
+                    candidates.append((scores, tokens))
 
                 #embedded_token = self.embed(torch.tensor([tokens[-1]]).to(inputs.device))
                 hiddens, states = self.lstm(inputs, states)
                 scores = self.linear(hiddens.squeeze(1))
-                print('scores', scores)
+                #print('scores', scores)
                 top_scores, top_indices = scores.topk(k)
 
                 for i in range(k):
-                    next_node = top_indices[0][i].item()
                     next_token = top_scores[0][i].item()
-                    new_node.append(next_node)
-                    new_tokens.append(next_token)
+                    next_node = top_indices[0][i].item()
                     
-                    new_inputs = inputs
-                    new_states = states
-                    print('i', i, 'new_tokens', new_tokens)
 
                     if next_token == end_token:
                         candidates.append((new_tokens))
                     else:
+                        new_node.append(next_node)
+                        new_tokens.append(next_token)
+                        new_inputs = inputs
+                        new_states = states
                         new_beams.append((new_node, new_tokens, new_inputs, new_states))
+                        #print('i', i, 'new_tokens', new_tokens)
+
             #print('new_tokens', new_tokens)
             new_beams.sort(key=lambda x: x[0], reverse=True)
             beams = new_beams[:k]
