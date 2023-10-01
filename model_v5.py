@@ -34,44 +34,47 @@ class DecoderRNN(nn.Module):
         return outputs
 
     
-  
+    
+
     def beam_search(self, features, start_token, end_token, k, max_len, states=None):
         inputs = features.unsqueeze(1)  # Add a time step dimension
-        beams = [(torch.tensor([start_token]).to(features.device), [start_token], states)]
+        beams = [(torch.tensor([start_token]).to(features.device), [start_token])]
+        
 
         for _ in range(max_len):
             new_beams = []
             new_tokens = []
 
-            for tokens, _, lstm_states in beams:
+            for tokens, _ in beams:
                 if tokens[-1] == end_token:
-                    new_beams.append((tokens, 1, lstm_states))
+                    new_beams.append((tokens, 1))
                     continue
 
                 embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
-                hiddens, lstm_states = self.lstm(embeddings.unsqueeze(1), lstm_states)
+                hiddens, states = self.lstm(embeddings, states)
                 scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = scores.topk(k)
 
                 for i in range(k):
                     next_token = top_indices[0][i].item()
-                    #next_token = torch.tensor(top_indices[0][i].item()).to(features.device)
                     new_tokens.append(next_token)
-                    #new_tokens = tokens + [next_token]
+                    #next_token = torch.tensor(top_indices[0][i].item()).to(features.device)
                     #new_tokens = torch.tensor(tokens + next_token).to(features.device)  # Convert to tensor
-                    new_beams.append((new_tokens, top_scores[0][i].item(), lstm_states))
+                    new_beams.append((new_tokens, top_scores[0][i].item()))
                     print('i', i, 'new_tokens', new_tokens)
-
-            # Sort beams based on scores
+                    
             beams = sorted(new_beams, key=lambda x: x[1], reverse=True)[:k]
+            print('beams', beams)
 
         # Extract the top token sequences from the beams and convert them to lists
-        top_sequences = [tokens for tokens, _, _ in beams if tokens[-1] == end_token]
+        top_sequences = [tokens for tokens, _ in beams if tokens[-1] == end_token]
         return top_sequences
 
 # Example usage:
 # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
 # top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
+
+
 
 
     def sample(self, features, k, states=None, max_len=20):
