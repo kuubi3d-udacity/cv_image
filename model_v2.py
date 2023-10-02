@@ -36,17 +36,26 @@ class DecoderRNN(nn.Module):
     
    
 
-    def beam_search(self, features, start_token, end_token, k, max_len, states=None):
+    def beam_search(self, features, start_token, end_token, k, max_len, states):
         batch_size = features.size(0)
         inputs = features.unsqueeze(1)  # Add a time step dimension
-        beams = [([(torch.tensor([start_token]).to(features.device), states)] * batch_size, [start_token], 0)]
-
+        beams = [(torch.tensor([start_token]).to(features.device), states, [start_token], 0)] * batch_size
+        print('beams',beams)
         for _ in range(max_len):
             new_beams = []
 
-            for (score, lstm_states), tokens, _ in beams:
+            for (beam_scores, lstm_states, tokens, _), _ in zip(beams, range(batch_size)):
+
+                print('beam_score',beam_scores)
+                print('lstm_states',lstm_states)
+                print('tokens', tokens)
+                print('_', _)
+                print('states', states)
+                print('batch_size', batch_size)
+                print('beams', beams)
+
                 if tokens[-1] == end_token:
-                    new_beams.append((score, lstm_states, tokens, 1))
+                    new_beams.append((beam_scores, lstm_states, tokens, _))
                     continue
 
                 embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
@@ -57,15 +66,19 @@ class DecoderRNN(nn.Module):
                 for i in range(k):
                     next_token = top_indices[0][i].item()
                     next_score = top_scores[0][i].item()
-                    new_score = score + next_score
+                    new_score = beam_scores + next_score
 
                     new_tokens = tokens + [next_token]
                     new_beams.append((new_score, lstm_states, new_tokens, next_token))
 
+            # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
 
-        best_captions = [max(beams, key=lambda x: x[0])[2] for _ in range(batch_size)]
+        # Extract best captions for each batch element
+        best_captions = [max(beams[i * k: (i + 1) * k], key=lambda x: x[0])[2] for i in range(batch_size)]
+        
         return best_captions
+
 
 # Example usage:
 # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
