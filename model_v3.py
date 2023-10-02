@@ -33,10 +33,8 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
-    
-   
 
-    def beam_search(self, features, start_token, end_token, k, max_len, states):
+    def beam_search(self, features, start_token, end_token, states, k, max_len):
         batch_size = features.size(0)
         inputs = features.unsqueeze(1)  # Add a time step dimension
         beams = [(torch.tensor([start_token]).to(features.device), states, [start_token], 0)] * batch_size
@@ -58,7 +56,7 @@ class DecoderRNN(nn.Module):
                     new_beams.append((beam_scores, lstm_states, tokens, _))
                     continue
 
-                #embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
+                embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
                 hiddens, lstm_states = self.lstm(embeddings, lstm_states)
                 scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = scores.topk(k)
