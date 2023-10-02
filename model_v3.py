@@ -74,6 +74,8 @@ class DecoderRNN(nn.Module):
 
         # Extract best captions for each batch element
         best_captions = [max(beams[i * k: (i + 1) * k], key=lambda x: x[0])[2] for i in range(batch_size)]
+        best_captions = [caption for sublist in best_captions for caption in sublist]
+
         
         return best_captions
 
