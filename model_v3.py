@@ -38,7 +38,7 @@ class DecoderRNN(nn.Module):
         batch_size=features.size(2)
         inputs = features.unsqueeze(1)  # Add a time step dimension
         beams = [(torch.tensor([start_token]).to(features.device), states, [start_token], 0)] * batch_size
-        print('beams',beams)
+        #print('beams',beams)
         for _ in range(max_len):
             new_beams = []
 
@@ -72,28 +72,35 @@ class DecoderRNN(nn.Module):
             # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
 
+        #'''
+        best_caption = max(beams, key=lambda x: x[0])[1]
+        return best_caption
+        #'''
+
+        '''
         # Extract best captions for each batch element
-        best_captions = [max(beams[i * k: (i + 1) * k], key=lambda x: x[0])[2] for i in range(batch_size)]
-        best_captions = [caption for sublist in best_captions for caption in sublist]
+        caption_list = [max(beams[i * k: (i + 1) * k], key=lambda x: x[0])[2] for i in range(batch_size)]
+        print('list',caption_list)
+        best_captions = [captions for sublist in caption_list for captions in sublist]
 
         return best_captions
+        #'''
+
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
 
 
-# Example usage:
-# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
-# best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
+
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
 
 
-# Example usage:
-# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
-# best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
-
-# Example usage:
-# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
-# top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
-
-
-    def sample(self, features, k, states=None, max_len=20):
+    def sample(self, features, states=None, max_len=20):
         # Original pseudo-code line 3: Walk over each step-in sequence
 
         #inputs = features.unsqueeze(1)
