@@ -34,7 +34,7 @@ class DecoderRNN(nn.Module):
         return outputs
 
     
-    def beam_search(self, features, start_token, end_token, k, max_len, states=None):
+    def beam_search(self, features, start_token, end_token, states, k, max_len ):
         inputs = features.unsqueeze(1)  # Add a time step dimension
         beams = [(torch.tensor([start_token]).to(features.device), [start_token], 0)]
 
@@ -83,7 +83,7 @@ class DecoderRNN(nn.Module):
 # top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
 
 
-    def sample(self, features, k, states=None, max_len=20):
+    def sample(self, features, states=None, max_len=20):
         # Original pseudo-code line 3: Walk over each step-in sequence
 
         #inputs = features.unsqueeze(1)
