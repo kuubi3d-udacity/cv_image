@@ -34,67 +34,15 @@ class DecoderRNN(nn.Module):
         return outputs
 
 
-    def beam_search(self, features, start_token, end_token, lstm_states, k, max_len):
-      
-        #linear_layer = torch.nn.Linear(256, 512).to(device)
-        #features = linear_layer(encoder(image).unsqueeze(0))
+    def beam_search(self, features, start_token, end_token, states, k, max_len):
         batch_size=features.size(2)
-
-        #'''
-        # Initialize LSTM states with image features
-        lstm_states = (
-            features.squeeze(0),  # Initial hidden state (hx)
-            torch.zeros(1, 1, batch_size).to(features.device).squeeze(0) # Initial cell state (cx)
-            )
-        #'''
-
-        lstm_states = None
-        #states=lstm_states
-        #states=None
-
-        inputs = features # Add a time step dimension
-        beams = [(torch.tensor([start_token]).to(inputs.device), inputs, lstm_states, 0)] * batch_size
-        
+        inputs = features.unsqueeze(1)  # Add a time step dimension
+        beams = [(torch.tensor([start_token]).to(features.device), states, [start_token], 0)] * batch_size
         #print('beams',beams)
-        #print('batch_size', batch_size)
-        #print('input size', inputs.size())
-        
         for _ in range(max_len):
             new_beams = []
 
-            for (tokens, lstm_states, beam_scores), _ in zip(beams, range(batch_size)):
-
-                if tokens[-1] == end_token:
-                    new_beams.append((tokens, lstm_states, beam_scores))
-                    continue
-                
-                # Assuming self.embed is a nn.Embedding layer with input_dim=256 and output_dim=512
-                #linear_layer = nn.Linear(256, 512).to(features.device)
-                # Get the last token from tokens
-                #last_token = torch.tensor([tokens[-1]]).to(features.device)
-                # Apply the linear layer to transform the token embedding
-                #transformed_embedding = linear_layer(self.embed(last_token))
-                # Add a time step dimension
-                #embed_token = transformed_embedding.unsqueeze(0)
-
-                #embeddings = self.embed(torch.tensor([tokens[-1]]).unsqueeze(0).to(features.device))
-                embed_token = self.embed(torch.tensor([tokens[-1]]).to(features.device))
-                hiddens, lstm_states = self.lstm(embed_token, lstm_states)
-                scores = self.linear(hiddens.squeeze(1))
-                top_scores, top_indices = scores.topk(k)
-
-                #print('features =', features.size())
-                #print('embed_token =', embed_token.size())
-                #print('features =', features.size())
-                #print('lstm states =', lstm_states[0].size(), lstm_states[1].size())
-
-                for i in range(k):
-                    next_token = top_indices[0][i].item()
-                    next_score = top_scores[0][i].item()
-                    new_score = beam_scores + next_score
-
-                    new_tokens = tokens + [next_token]
-                    new_beams.append((new_tokens, lstm_states, new_score))
+            for (beam_scores, lstm_states, tokens, _), _ in zip(beams, range(batch_size)):
 
                 #print('beam_score',beam_scores)
                 #print('lstm_states',lstm_states)
@@ -104,10 +52,25 @@ class DecoderRNN(nn.Module):
                 #print('batch_size', batch_size)
                 #print('beams', beams)
 
+                if tokens[-1] == end_token:
+                    new_beams.append((beam_scores, lstm_states, tokens, _))
+                    continue
+
+                embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
+                hiddens, lstm_states = self.lstm(embeddings, lstm_states)
+                scores = self.linear(hiddens.squeeze(1))
+                top_scores, top_indices = scores.topk(k)
+
+                for i in range(k):
+                    next_token = top_indices[0][i].item()
+                    next_score = top_scores[0][i].item()
+                    new_score = beam_scores + next_score
+
+                    new_tokens = tokens + [next_token]
+                    new_beams.append((new_score, lstm_states, new_tokens, next_token))
+
             # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
-
-        # Extract best captions for each batch element
 
         #'''
         # Extract the best captions for each batch element
@@ -120,15 +83,6 @@ class DecoderRNN(nn.Module):
         print('best_caption', best_caption)
         return best_caption
         #'''
-
-        '''
-        caption = [beam[2] for beam in beams]
-        best_caption = [token for tokens in caption for token in tokens]
-
-        return best_caption
-        #'''
-        
-        
         '''
         best_caption = max(beams, key=lambda x: x[0])[1]
         return best_caption
@@ -143,7 +97,18 @@ class DecoderRNN(nn.Module):
         return best_captions
         #'''
 
-        
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
+
+
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
+
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
 
 
     def sample(self, features, states=None, max_len=20):
@@ -165,7 +130,7 @@ class DecoderRNN(nn.Module):
             #print("inputs", inputs)
             #print("outputs", outputs)
             #print("predicted", predicted)
-            print("sample_ids", sampled_ids)
+            #print("sample_ids", sampled_ids)
  
         return sampled_ids
     
