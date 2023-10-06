@@ -48,9 +48,6 @@ class DecoderRNN(nn.Module):
                     new_beams.append((beam_scores, lstm_states, tokens, _))
                     continue
 
-                
-                import torch.nn as nn
-
                 # Assuming self.embed is a nn.Embedding layer with input_dim=256 and output_dim=512
                 linear_layer = nn.Linear(256, 256).to(features.device)
                 # Get the last token from tokens

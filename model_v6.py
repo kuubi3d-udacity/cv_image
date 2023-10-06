@@ -36,13 +36,25 @@ class DecoderRNN(nn.Module):
 
     def beam_search(self, features, start_token, end_token, k, max_len):
         batch_size = features.size(0)
-        inputs = features.squeeze(0)  # Add a time step dimension
 
-        beams = [(torch.tensor([start_token]).to(features.device), inputs, None, 0)] * batch_size
+        input = features  # Add a time step dimension
+
+        # Assuming self.embed is a nn.Embedding layer with input_dim=256 and output_dim=512
+        #self.linear_embed = nn.Linear(256, 512).to(features.device)
+        #lstm_states = self.linear_embed(features)
+        
+        #linear_input= torch.nn.Linear(256, 512).to(features.device)
+        #lstm_states = linear_layer(features)
+
+        #embed_token = self.trasform_embedding(features, [start_token])
+        
+
+        beams = [(torch.tensor([start_token]).to(features.device), input, None, 0)] * batch_size
+        
 
         for _ in range(max_len):
             new_beams = []
-
+            
             for (tokens, inputs, lstm_states, beam_scores) in beams:
                 if tokens[-1] == end_token:
                     new_beams.append((tokens, inputs, lstm_states, beam_scores))
@@ -52,7 +64,11 @@ class DecoderRNN(nn.Module):
                 if lstm_states is None:
                     lstm_states = self.initialize_lstm_states(features, batch_size)
                 #lstm_states=None
-                hiddens, lstm_states = self.lstm(embed_token, lstm_states)
+
+                print ('embed_token', embed_token.size())
+                #print ('lstm_states', lstm_states.size())
+
+                hiddens, lstm_states = self.lstm(inputs, lstm_states)
                 scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = scores.topk(k)
 
@@ -74,9 +90,21 @@ class DecoderRNN(nn.Module):
         return best_captions
 
     def initialize_lstm_states(self, features, batch_size):
-        initial_hidden = features.squeeze(0)
-        initial_cell = torch.zeros(1, batch_size, self.lstm.hidden_size).to(features.device).squeeze(0)
+        initial_hidden = features
+        initial_cell = torch.zeros(1, self.lstm.input_size, self.lstm.hidden_size).to(features.device)
         return (initial_hidden, initial_cell)
+    
+    def trasform_embedding(self, features, tokens):
+        # Get the last token from tokens
+        last_token = torch.tensor([tokens[-1]]).to(features.device)
+        self.linear_embed = torch.nn.Linear(256, 512).to(features.device)
+        # Apply the linear layer to transform the token embedding
+        transformed_embedding = self.linear_layer(self.embed(last_token))
+        # Add a time step dimension
+        embed_token = transformed_embedding
+        return embed_token
+    
+        
 
 
         '''
