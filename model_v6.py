@@ -84,7 +84,7 @@ class DecoderRNN(nn.Module):
             # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[3], reverse=True)[:k]
 
-        # Extract the best captions for each batch element
+        ## Extract the best captions for each batch element
         best_captions = [beam[0] for beam in beams]
 
         return best_captions
