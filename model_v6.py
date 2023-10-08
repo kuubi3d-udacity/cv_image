@@ -34,7 +34,7 @@ class DecoderRNN(nn.Module):
         return outputs
 
 
-    def beam_search(self, features, start_token, end_token, k, max_len):
+    def beam_search(self, features, start_token, end_token, states, k, max_len):
         batch_size = features.size(0)
 
         input = features  # Add a time step dimension
@@ -61,9 +61,13 @@ class DecoderRNN(nn.Module):
                     continue
 
                 embed_token = self.embed(tokens[-1].unsqueeze(0).to(features.device))
+
+                #'''
                 if lstm_states is None:
                     lstm_states = self.initialize_lstm_states(features, batch_size)
-                #lstm_states=None
+                #'''
+
+                lstm_states=None
 
                 print ('embed_token', embed_token.size())
                 #print ('lstm_states', lstm_states.size())
@@ -73,21 +77,32 @@ class DecoderRNN(nn.Module):
                 top_scores, top_indices = scores.topk(k)
 
                 for i in range(k):
-                    next_token = top_indices[0][i].item()
-                    next_score = top_scores[0][i].item()
+                    print('top_indices shape:', top_indices.shape)
+                    print('top_scores shape:', top_scores.shape)
+                    print('top_indices', top_indices[0, i].item())
+                    next_token = top_indices[0, i].item()
+                    next_score = top_scores[0, i].item()
                     new_score = beam_scores + next_score
 
-                    new_tokens = tokens + [next_token]
-                    new_inputs = torch.cat((inputs, embed_token.unsqueeze(1)), dim=1)
-                    new_beams.append((new_tokens, new_inputs, lstm_states, new_score))
+                    new_tokens = tokens + next_token
+                    #new_inputs = torch.cat((inputs, new_tokens), dim=1)
+                    new_beams.append((new_tokens, inputs, lstm_states, new_score))
 
             # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[3], reverse=True)[:k]
 
         ## Extract the best captions for each batch element
-        best_captions = [beam[0] for beam in beams]
 
-        return best_captions
+        caption_list = [beam[0] for beam in beams]
+        best_caption = [sublist for sublist in caption_list[0]]
+
+        #best_caption = [max(beams[i * k: (i + 1) * k], key=lambda x: x[0])[2] for i in range(batch_size)]
+        #best_caption = [caption for sublist in best_caption for caption in sublist]
+
+        #caption = [beam[0] for beam in beams]
+        #best_caption = [token for tokens in caption for token in tokens]
+
+        return best_caption
 
     def initialize_lstm_states(self, features, batch_size):
         initial_hidden = features

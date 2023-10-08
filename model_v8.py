@@ -33,31 +33,28 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens)
         return outputs
 
-    
-   
 
     def beam_search(self, features, start_token, end_token, states, k, max_len):
-        batch_size = features.size(0)
+        batch_size=features.size(2)
         inputs = features.unsqueeze(1)  # Add a time step dimension
         beams = [(torch.tensor([start_token]).to(features.device), states, [start_token], 0)] * batch_size
-        print('beams',beams)
+        #print('beams',beams)
         for _ in range(max_len):
             new_beams = []
 
             for (beam_scores, lstm_states, tokens, _), _ in zip(beams, range(batch_size)):
 
+                #print('beam_score',beam_scores)
+                #print('lstm_states',lstm_states)
+                #print('tokens', tokens)
+                #print('_', _)
+                #print('states', states)
+                #print('batch_size', batch_size)
+                #print('beams', beams)
+
                 if tokens[-1] == end_token:
                     new_beams.append((beam_scores, lstm_states, tokens, _))
                     continue
-
-                '''
-                if lstm_states is None:
-                    lstm_states = self.initialize_lstm_states(features, batch_size)
-                
-                lstm_states = None
-                #'''
-                
-                print('lstm', lstm_states)
 
                 embeddings = self.embed(torch.tensor([tokens[-1]]).to(features.device))
                 hiddens, lstm_states = self.lstm(embeddings, lstm_states)
@@ -65,8 +62,8 @@ class DecoderRNN(nn.Module):
                 top_scores, top_indices = scores.topk(k)
 
                 for i in range(k):
-                    next_token = top_indices[0, i].item()
-                    next_score = top_scores[0, i].item()
+                    next_token = top_indices[0][i].item()
+                    next_score = top_scores[0][i].item()
                     new_score = beam_scores + next_score
 
                     new_tokens = tokens + [next_token]
@@ -75,33 +72,46 @@ class DecoderRNN(nn.Module):
             # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
 
+        #'''
+        # Extract the best captions for each batch element
+        caption_list = [beam[2] for beam in beams]
+
+        best_caption = [sublist for sublist in caption_list[0]]
+
+        #print('beams', beams[2])
+        print('caption', caption_list[0])
+        print('best_caption', best_caption)
+        return best_caption
+        #'''
+        '''
+        best_caption = max(beams, key=lambda x: x[0])[1]
+        return best_caption
+        #'''
+
+        '''
         # Extract best captions for each batch element
         caption_list = [max(beams[i * k: (i + 1) * k], key=lambda x: x[0])[2] for i in range(batch_size)]
-        best_caption = [sublist for sublist in caption_list[0]]
-        
-        return best_caption
+        print('list',caption_list)
+        best_captions = [captions for sublist in caption_list for captions in sublist]
+
+        return best_captions
+        #'''
+
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
 
 
-    def initialize_lstm_states(self, features, batch_size):
-        initial_hidden = features.squeeze(0)
-        initial_cell = torch.zeros(1, batch_size, self.lstm.hidden_size).to(features.device)
-        return (initial_hidden, initial_cell)
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
 
-# Example usage:
-# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
-# best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
-
-
-# Example usage:
-# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
-# best_caption_tokens = decoder.beam_search(features, start_token, end_token, k, max_len)
-
-# Example usage:
-# decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
-# top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
+        # Example usage:
+        # decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        # top_token_sequences = decoder.beam_search(features, start_token, end_token, k=3, max_len=20)
 
 
-    def sample(self, features, k, states=None, max_len=20):
+    def sample(self, features, states=None, max_len=20):
         # Original pseudo-code line 3: Walk over each step-in sequence
 
         #inputs = features.unsqueeze(1)
@@ -118,8 +128,8 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)
 
             #print("inputs", inputs)
-            print("outputs", outputs)
-            print("predicted", predicted)
+            #print("outputs", outputs)
+            #print("predicted", predicted)
             #print("sample_ids", sampled_ids)
  
         return sampled_ids

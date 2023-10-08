@@ -38,6 +38,20 @@ class DecoderRNN(nn.Module):
     def beam_search(self, features, start_token, end_token, states, k, max_len):
         batch_size=features.size(2)
         inputs = features.unsqueeze(1)  # Add a time step dimension
+
+        input = features  # Add a time step dimension
+
+        # Assuming self.embed is a nn.Embedding layer with input_dim=256 and output_dim=512
+        #self.linear_embed = nn.Linear(256, 512).to(features.device)
+        #lstm_states = self.linear_embed(features)
+        
+        #linear_input= torch.nn.Linear(256, 512).to(features.device)
+        #lstm_states = linear_layer(features)
+
+        #embed_token = self.trasform_embedding(features, [start_token])
+
+
+
         beams = [(torch.tensor([start_token]).to(features.device), states, [start_token], 0)] * batch_size
         #print('beams',beams.size())
         for _ in range(max_len):
@@ -71,7 +85,7 @@ class DecoderRNN(nn.Module):
                 print('features =', features.size())
                 print('embed_token =', embed_token.size())
                 print('features =', features.size())
-                print('lstm states =', lstm_states[0].size(), lstm_states[1].size())
+                #print('lstm states =', lstm_states[0].size(), lstm_states[1].size())
 
                 hidden, lstm_states = self.lstm(inputs, lstm_states)
                 scores = self.linear(hidden.squeeze(1))

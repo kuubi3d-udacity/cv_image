@@ -34,7 +34,7 @@ class DecoderRNN(nn.Module):
         return outputs
 
 
-    def beam_search(self, features, start_token, end_token, lstm_states, k, max_len):
+    def beam_search(self, features, start_token, end_token, states, k, max_len):
       
         #linear_layer = torch.nn.Linear(256, 512).to(device)
         #features = linear_layer(encoder(image).unsqueeze(0))
