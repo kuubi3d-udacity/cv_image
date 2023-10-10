@@ -36,26 +36,26 @@ class DecoderRNN(nn.Module):
 
     def beam_search(self, features, start_token, end_token, k, max_len):
         batch_size = features.size(0)
-        inputs = features  # Add a time step dimension
+        inputs = features  
         beams = [(torch.tensor([start_token]).to(features.device), [start_token], 0, None)] * batch_size
 
         for _ in range(max_len):
             new_beams = []
 
-            for beam_scores, tokens, _, lstm_states in beams:
-                if tokens[-1] == end_token:
-                    new_beams.append((beam_scores, tokens, _, lstm_states))
+            for beam_scores, new_tokens, _, lstm_states in beams:
+                if new_tokens[-1] == end_token:
+                    new_beams.append((beam_scores, new_tokens, _, lstm_states))
                     continue
 
-                last_token = torch.tensor([tokens[-1]]).to(features.device)
+                #last_token = torch.tensor([new_tokens[-1]]).to(features.device)
                 
                 # Combine image features and previously generated tokens
-                embeddings = self.embed(last_token) + inputs
+                #inputs = self.embed(last_token)# + features
 
                 if lstm_states is None:
-                    lstm_states = self.initialize_lstm_states(embeddings, batch_size)
+                    lstm_states = self.initialize_lstm_states(inputs, batch_size)
 
-                hiddens, lstm_states = self.lstm(embeddings, lstm_states)
+                hiddens, lstm_states = self.lstm(inputs, lstm_states)
                 scores = self.linear(hiddens.squeeze(1))
                 top_scores, top_indices = scores.topk(k)
 
@@ -63,9 +63,9 @@ class DecoderRNN(nn.Module):
                     next_token = top_indices[0, i].item()
                     next_score = top_scores[0, i].item()
                     new_score = beam_scores + next_score
-
-                    new_tokens = tokens + [next_token]
+                    new_tokens = new_tokens + [next_token]
                     new_beams.append((new_score, new_tokens, next_token, lstm_states))
+                    inputs = self.embed(torch.tensor([next_token]).unsqueeze(0).to(features.device))
 
             # Sort beams based on new scores and keep the top-k beams
             beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
@@ -78,8 +78,12 @@ class DecoderRNN(nn.Module):
 
     #'''
     def initialize_lstm_states(self, features, batch_size):
+
         initial_hx = torch.zeros(1, batch_size, self.lstm.hidden_size).to(features.device)
         initial_cx = torch.zeros(1, batch_size, self.lstm.hidden_size).to(features.device)
+        
+        #initial_hx = torch.zeros(1, batch_size, self.lstm.hidden_size).squeeze(0).to(features.device)
+        #initial_cx = torch.zeros(1, batch_size, self.lstm.hidden_size).squeeze(0).to(features.device)
         return (initial_hx, initial_cx)
     #'''
 
